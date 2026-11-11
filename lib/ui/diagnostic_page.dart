@@ -36,7 +36,14 @@ class _DiagnosticPageState extends State<DiagnosticPage> {
       ),
       ('Statuts enregistrés', '${c.nbEtatsEnregistres}${inconnus > 0 ? ' (dont $inconnus hors carte)' : ''}'),
       ('Avancement', c.avancement.resume),
-      ('Campagne commencée', c.campagne == null ? 'inconnue' : dateCourte(c.campagne!.debut)),
+      (
+        'Campagne',
+        c.campagne == null
+            ? 'inconnue'
+            : '${c.campagne!.annee}, commencée ${dateCourte(c.campagne!.debut)}'
+                '${c.archives.isEmpty ? '' : ' (archives : ${c.archives.map((a) => a.annee).join(', ')})'}',
+      ),
+      ('Mémos', '${c.nbParcellesAvecMemos} maison(s) avec mémos'),
       ('Dernier export', c.dernierExport == null ? 'jamais' : decrireMoment(c.dernierExport!, maintenant)),
       ('Ouverte depuis l\'écran d\'accueil', p.estAppInstallee ? 'oui' : 'non (onglet du navigateur)'),
       ('Stockage persistant', await p.stockagePersistant() ? 'accordé' : 'non accordé'),

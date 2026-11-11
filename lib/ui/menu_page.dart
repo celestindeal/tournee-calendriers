@@ -1,15 +1,15 @@
-import 'dart:convert';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../data/export_service.dart';
 import '../journal.dart';
+import '../models/statut.dart';
 import '../platform/plateforme.dart';
 import '../state/tournee_controller.dart';
 import 'diagnostic_page.dart';
+import 'export_tournee.dart';
 import 'formats.dart';
+import 'nouvelle_campagne_page.dart';
 
 /// Menu : sauvegarde (export / import, F8), diagnostic, sources.
 class MenuPage extends StatelessWidget {
@@ -25,36 +25,7 @@ class MenuPage extends StatelessWidget {
     ));
   }
 
-  /// Ouvre la feuille de partage d'iOS (« Enregistrer dans Fichiers »).
-  /// Rien n'est attendu avant l'appel au partage : Safari exige qu'il suive
-  /// directement le toucher (ARCHITECTURE §7.7).
-  Future<void> _exporter(BuildContext context) async {
-    final maintenant = DateTime.now();
-    final nom = ExportService.nomFichier(maintenant);
-    final fichier = XFile.fromData(
-      utf8.encode(controller.contenuExport(maintenant)),
-      mimeType: 'application/json',
-      name: nom,
-    );
-    try {
-      final resultat = await SharePlus.instance.share(ShareParams(
-        files: [fichier],
-        fileNameOverrides: [nom],
-        title: 'Sauvegarde de la tournée',
-        downloadFallbackEnabled: true, // si le partage est impossible : téléchargement
-      ));
-      if (!context.mounted) return;
-      if (resultat.status == ShareResultStatus.dismissed) {
-        _signaler(context, 'Export annulé : aucune sauvegarde n\'a été faite.');
-        return;
-      }
-      await controller.noterExport(maintenant);
-      if (context.mounted) _signaler(context, 'Sauvegarde faite : $nom');
-    } catch (e, pile) {
-      Journal.instance.ajouter('Export : $e', pile);
-      if (context.mounted) _signaler(context, 'L\'export a échoué. Réessayez.', erreur: true);
-    }
-  }
+  Future<void> _exporter(BuildContext context) => exporterTournee(context, controller);
 
   Future<void> _importer(BuildContext context) async {
     final PlatformFile? fichier;
@@ -159,8 +130,33 @@ class MenuPage extends StatelessWidget {
           final maintenant = DateTime.now();
           final exportEnRetard = controller.nbEtatsEnregistres > 0 &&
               (dernier == null || maintenant.difference(dernier) > const Duration(days: 2));
+          final campagne = controller.campagne;
           return ListView(
             children: [
+              if (campagne != null) ...[
+                _Titre('Campagne ${campagne.annee}'),
+                ListTile(
+                  leading: const Icon(Icons.event_note),
+                  title: Text('Commencée ${dateCourte(campagne.debut)}'),
+                  subtitle: Text([
+                    controller.avancement.resume,
+                    for (final a in controller.archives)
+                      'Campagne ${a.annee} : ${a.nombre(Statut.achete) + a.nombre(Statut.refus)} faits, '
+                          '${a.nombre(Statut.achete)} achetés',
+                  ].join('\n')),
+                ),
+                ListTile(
+                  key: const Key('menu-nouvelle-campagne'),
+                  leading: const Icon(Icons.restart_alt),
+                  title: const Text('Nouvelle campagne…'),
+                  subtitle: const Text('Archive cette année et remet toutes les maisons à zéro'),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(builder: (_) => NouvelleCampagnePage(controller: controller)),
+                  ),
+                ),
+                const Divider(),
+              ],
               const _Titre('Sauvegarde'),
               ListTile(
                 key: const Key('menu-exporter'),
