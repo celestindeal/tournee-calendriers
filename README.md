@@ -41,6 +41,7 @@ La carte montre les **5 776 parcelles cadastrales bâties** des 6 communes. Les 
 
 | Fonction | Où | Ce qu'elle fait |
 | --- | --- | --- |
+| **Itinéraire** | Icône ➦ à côté de l'adresse, dans le panneau | Propose Plans (Apple), Google Maps ou Waze pour aller jusqu'à la maison (coordonnées du bâtiment principal, même sans adresse connue). |
 | **Me localiser** | Bouton rond en bas à droite | Point bleu à votre position. Le GPS n'est demandé qu'à l'appui, et se coupe quand l'app passe en arrière-plan. |
 | **Exporter la tournée** | Menu ☰ | Crée un fichier de sauvegarde, à enregistrer dans Fichiers ou iCloud Drive. La date du dernier export s'affiche, en rouge s'il date de plus de 2 jours. |
 | **Importer une sauvegarde** | Menu ☰ | Remplace les statuts par ceux d'un fichier, après confirmation. |

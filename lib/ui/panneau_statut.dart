@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/parcelle.dart';
 import '../models/statut.dart';
 import '../state/tournee_controller.dart';
+import 'itineraire.dart';
 
 /// Panneau du bas : adresse de la parcelle touchée et gros boutons de statut (F2).
 /// Choisir un statut l'enregistre et ferme le panneau.
@@ -45,6 +46,8 @@ class PanneauStatut extends StatelessWidget {
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
+                  // Itinéraire jusqu'au bâtiment principal (Plans, Google Maps ou Waze).
+                  BoutonItineraire(destination: parcelle.centre, titre: parcelle.adresse),
                   IconButton(
                     tooltip: 'Fermer',
                     icon: const Icon(Icons.close),
