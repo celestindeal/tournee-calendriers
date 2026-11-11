@@ -3,15 +3,21 @@ import 'package:flutter/material.dart';
 
 import '../data/export_service.dart';
 import '../journal.dart';
+import '../models/filtre.dart';
 import '../models/statut.dart';
 import '../platform/plateforme.dart';
 import '../state/tournee_controller.dart';
+import 'barre_avancement.dart';
 import 'diagnostic_page.dart';
 import 'export_tournee.dart';
 import 'formats.dart';
+import 'listes_page.dart';
 import 'nouvelle_campagne_page.dart';
+import 'recherche_page.dart';
 
-/// Menu : sauvegarde (export / import, F8), diagnostic, sources.
+/// Menu et réglages : listes des maisons, affichage (filtre F9, légende),
+/// campagne (F11), sauvegarde (export / import, F8), diagnostic, sources.
+/// Peut renvoyer à la carte l'identifiant d'une maison choisie dans une liste.
 class MenuPage extends StatelessWidget {
   const MenuPage({super.key, required this.controller, required this.plateforme});
 
@@ -26,6 +32,16 @@ class MenuPage extends StatelessWidget {
   }
 
   Future<void> _exporter(BuildContext context) => exporterTournee(context, controller);
+
+  Future<void> _ouvrirListes(BuildContext context, int onglet) =>
+      _ouvrirAutrePage(context, ListesPage(controller: controller, ongletInitial: onglet));
+
+  /// Ouvre une page qui peut renvoyer une maison (listes, recherche) : le
+  /// menu se ferme alors en la renvoyant à la carte, qui se centre dessus.
+  Future<void> _ouvrirAutrePage(BuildContext context, Widget page) async {
+    final id = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => page));
+    if (id != null && context.mounted) Navigator.pop(context, id);
+  }
 
   Future<void> _importer(BuildContext context) async {
     final PlatformFile? fichier;
@@ -131,8 +147,54 @@ class MenuPage extends StatelessWidget {
           final exportEnRetard = controller.nbEtatsEnregistres > 0 &&
               (dernier == null || maintenant.difference(dernier) > const Duration(days: 2));
           final campagne = controller.campagne;
+          final nbARepasser = controller.avancement.aRepasser;
+          final nbNonVisitees = controller.jeu.parcelles.where((p) => controller.statutDe(p.id) == Statut.nonVisite).length;
           return ListView(
             children: [
+              const _Titre('Maisons'),
+              ListTile(
+                key: const Key('menu-a-repasser'),
+                leading: Icon(Icons.replay, color: Statut.aRepasser.couleur),
+                title: Text('À repasser ($nbARepasser)'),
+                subtitle: const Text('Liste par commune et par rue'),
+                onTap: () => _ouvrirListes(context, 0),
+              ),
+              ListTile(
+                key: const Key('menu-non-visitees'),
+                leading: const Icon(Icons.format_list_bulleted),
+                title: Text('Non visitées ($nbNonVisitees)'),
+                subtitle: const Text('Liste par commune et par rue'),
+                onTap: () => _ouvrirListes(context, 1),
+              ),
+              ListTile(
+                key: const Key('menu-recherche'),
+                leading: const Icon(Icons.search),
+                title: const Text('Rechercher une adresse'),
+                onTap: () => _ouvrirAutrePage(context, RecherchePage(controller: controller)),
+              ),
+              const Divider(),
+              const _Titre('Affichage sur la carte'),
+              for (final f in Filtre.values)
+                ListTile(
+                  key: Key('filtre-${f.name}'),
+                  leading: Icon(f == controller.filtre ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                      color: f == controller.filtre ? theme.colorScheme.primary : null),
+                  title: Text(switch (f) {
+                    Filtre.toutes => 'Toutes les maisons',
+                    Filtre.nonVisitees => 'Seulement les non visitées',
+                    Filtre.aRepasser => 'Seulement celles à repasser',
+                  }),
+                  onTap: () {
+                    controller.changerFiltre(f);
+                    // Retour direct sur la carte pour voir le résultat.
+                    Navigator.pop(context);
+                  },
+                ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: LegendeCouleurs(key: Key('legende')),
+              ),
+              const Divider(),
               if (campagne != null) ...[
                 _Titre('Campagne ${campagne.annee}'),
                 ListTile(

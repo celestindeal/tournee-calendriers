@@ -17,9 +17,15 @@ void main() {
   });
 
   group('Menu', () {
-    Future<void> afficher(WidgetTester tester) => tester.pumpWidget(MaterialApp(
-          home: MenuPage(controller: controller, plateforme: PlateformeDeTest()),
-        ));
+    // Écran haut : tout le menu est construit, sans faire défiler.
+    Future<void> afficher(WidgetTester tester) {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      return tester.pumpWidget(MaterialApp(
+        home: MenuPage(controller: controller, plateforme: PlateformeDeTest()),
+      ));
+    }
 
     testWidgets('propose export et import, pas d\'annulation sans import', (tester) async {
       await afficher(tester);

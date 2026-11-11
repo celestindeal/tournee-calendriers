@@ -4,16 +4,16 @@ import '../models/filtre.dart';
 import '../models/statut.dart';
 import '../state/tournee_controller.dart';
 
-/// Compteur « 132 / 480 faits (27 %) – 45 à repasser », légende (F5) et,
-/// sur la carte, filtre d'affichage (F9).
+/// Barre fine en haut de la carte : compteur « 132 / 480 faits (27 %) »,
+/// barre de progression, nombre à repasser (F5), loupe et menu.
+/// La légende et le filtre sont dans le menu, pour laisser la place à la carte.
 class BarreAvancement extends StatelessWidget {
   const BarreAvancement({
     super.key,
     required this.controller,
     this.onMenu,
-    this.onListes,
     this.onRecherche,
-    this.afficherFiltre = false,
+    this.estTest = false,
   });
 
   final TourneeController controller;
@@ -21,14 +21,13 @@ class BarreAvancement extends StatelessWidget {
   /// Ouvre le menu (bouton affiché seulement si fourni).
   final VoidCallback? onMenu;
 
-  /// Ouvre les listes de maisons (bouton affiché seulement si fourni).
-  final VoidCallback? onListes;
-
   /// Ouvre la recherche d'adresse (bouton affiché seulement si fourni).
   final VoidCallback? onRecherche;
 
-  /// Affiche le choix « Toutes / Non visitées / À repasser ».
-  final bool afficherFiltre;
+  /// Environnement de test : badge « TEST » et bordure orange.
+  final bool estTest;
+
+  static const couleurTest = Color(0xFFEF6C00);
 
   @override
   Widget build(BuildContext context) {
@@ -40,80 +39,81 @@ class BarreAvancement extends StatelessWidget {
         return Card(
           elevation: 4,
           margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: estTest ? const BorderSide(color: couleurTest, width: 2) : BorderSide.none,
+          ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+            padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(a.resume, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                    ),
-                    if (onRecherche != null)
-                      IconButton(
-                        key: const Key('bouton-recherche'),
-                        tooltip: 'Rechercher une adresse',
-                        icon: const Icon(Icons.search),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: onRecherche,
-                      ),
-                    if (onListes != null)
-                      IconButton(
-                        key: const Key('bouton-listes'),
-                        tooltip: 'Listes des maisons',
-                        icon: const Icon(Icons.format_list_bulleted),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: onListes,
-                      ),
-                    if (onMenu != null)
-                      IconButton(
-                        key: const Key('bouton-menu'),
-                        tooltip: 'Menu',
-                        icon: const Icon(Icons.menu),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: onMenu,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: a.total == 0 ? 0 : a.faits / a.total,
-                    minHeight: 6,
-                    color: Statut.achete.couleur,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 4,
-                  children: [for (final s in Statut.values) _Legende(statut: s)],
-                ),
-                if (afficherFiltre) ...[
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: SegmentedButton<Filtre>(
-                      key: const Key('filtre'),
-                      showSelectedIcon: false,
-                      style: const ButtonStyle(
-                        visualDensity: VisualDensity.compact,
-                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
-                        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                      ),
-                      segments: [
-                        for (final f in Filtre.values)
-                          ButtonSegment(value: f, label: Text(f.libelle, key: Key('filtre-${f.name}'))),
-                      ],
-                      selected: {controller.filtre},
-                      onSelectionChanged: (choix) => controller.changerFiltre(choix.first),
+                if (estTest) ...[
+                  Container(
+                    key: const Key('badge-test'),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: couleurTest, borderRadius: BorderRadius.circular(6)),
+                    child: const Text(
+                      'TEST',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ),
+                  const SizedBox(width: 10),
                 ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${a.faits} / ${a.total} faits (${a.pourcentage} %)',
+                        key: const Key('compteur'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: LinearProgressIndicator(
+                                value: a.total == 0 ? 0 : a.faits / a.total,
+                                minHeight: 5,
+                                color: Statut.achete.couleur,
+                                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${a.aRepasser} à repasser',
+                            key: const Key('compteur-a-repasser'),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Statut.aRepasser.couleur,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                if (onRecherche != null)
+                  IconButton(
+                    key: const Key('bouton-recherche'),
+                    tooltip: 'Rechercher une adresse',
+                    icon: const Icon(Icons.search),
+                    onPressed: onRecherche,
+                  ),
+                if (onMenu != null)
+                  IconButton(
+                    key: const Key('bouton-menu'),
+                    tooltip: 'Menu',
+                    icon: const Icon(Icons.menu),
+                    onPressed: onMenu,
+                  ),
               ],
             ),
           ),
@@ -123,23 +123,64 @@ class BarreAvancement extends StatelessWidget {
   }
 }
 
-class _Legende extends StatelessWidget {
-  const _Legende({required this.statut});
+/// Petite étiquette sous la barre quand un filtre cache des maisons :
+/// on voit qu'il est actif et on l'enlève d'un toucher.
+class IndicateurFiltre extends StatelessWidget {
+  const IndicateurFiltre({super.key, required this.controller});
 
-  final Statut statut;
+  final TourneeController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final filtre = controller.filtre;
+        if (filtre == Filtre.toutes) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: InputChip(
+              key: const Key('filtre-actif'),
+              elevation: 3,
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              avatar: const Icon(Icons.filter_alt, size: 18),
+              label: Text('Seulement : ${filtre.libelle.toLowerCase()}'),
+              deleteButtonTooltipMessage: 'Afficher toutes les maisons',
+              onDeleted: () => controller.changerFiltre(Filtre.toutes),
+              onPressed: () => controller.changerFiltre(Filtre.toutes),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Légende des couleurs (dans le menu).
+class LegendeCouleurs extends StatelessWidget {
+  const LegendeCouleurs({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 14,
+      runSpacing: 6,
       children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: statut.couleur, borderRadius: BorderRadius.circular(3)),
-        ),
-        const SizedBox(width: 4),
-        Text(statut.libelle, style: Theme.of(context).textTheme.bodySmall),
+        for (final s in Statut.values)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(color: s.couleur, borderRadius: BorderRadius.circular(3)),
+              ),
+              const SizedBox(width: 6),
+              Text(s.libelle),
+            ],
+          ),
       ],
     );
   }

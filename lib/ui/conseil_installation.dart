@@ -16,24 +16,16 @@ class ConseilInstallation extends StatelessWidget {
       margin: EdgeInsets.zero,
       color: theme.colorScheme.tertiaryContainer,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 4, 10),
+        padding: const EdgeInsets.fromLTRB(12, 2, 0, 2),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Icon(Icons.install_mobile, color: theme.colorScheme.onTertiaryContainer),
-            ),
+            Icon(Icons.install_mobile, size: 20, color: theme.colorScheme.onTertiaryContainer),
             const SizedBox(width: 10),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  'Installez l\'app avant la tournée : dans Safari, touchez Partager, '
-                  'puis « Sur l\'écran d\'accueil ». Ouvrez-la ensuite toujours depuis '
-                  'son icône : les maisons cochées ici, dans Safari, n\'y seront pas.',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onTertiaryContainer),
-                ),
+              child: Text(
+                'Installez l\'app : Partager → « Sur l\'écran d\'accueil ». '
+                'Ce qui est coché dans Safari n\'y sera pas.',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onTertiaryContainer),
               ),
             ),
             IconButton(tooltip: 'Fermer', icon: const Icon(Icons.close), onPressed: onFermer),

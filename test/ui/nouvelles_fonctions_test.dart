@@ -4,7 +4,7 @@ import 'package:tournee_calendriers/models/filtre.dart';
 import 'package:tournee_calendriers/models/memo.dart';
 import 'package:tournee_calendriers/models/statut.dart';
 import 'package:tournee_calendriers/state/tournee_controller.dart';
-import 'package:tournee_calendriers/ui/barre_avancement.dart';
+import 'package:tournee_calendriers/ui/menu_page.dart';
 import 'package:tournee_calendriers/ui/listes_page.dart';
 import 'package:tournee_calendriers/ui/nouvelle_campagne_page.dart';
 import 'package:tournee_calendriers/ui/panneau_statut.dart';
@@ -53,14 +53,47 @@ void main() {
     });
   });
 
-  group('filtre dans le compteur', () {
-    testWidgets('choisir « À repasser »', (tester) async {
+  group('menu', () {
+    Future<void> ouvrirMenu(WidgetTester tester, void Function(String?) retour) async {
       await tester.pumpWidget(MaterialApp(
-        home: Scaffold(body: BarreAvancement(controller: controller, afficherFiltre: true)),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () async => retour(await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(builder: (_) => MenuPage(controller: controller, plateforme: PlateformeDeTest())),
+                )),
+                child: const Text('ouvrir'),
+              ),
+            ),
+          ),
+        ),
       ));
+      await tester.tap(find.text('ouvrir'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('choisir le filtre « À repasser » revient sur la carte', (tester) async {
+      await ouvrirMenu(tester, (_) {});
+      expect(find.byKey(const Key('legende')), findsOneWidget);
       await tester.tap(find.byKey(const Key('filtre-aRepasser')));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(controller.filtre, Filtre.aRepasser);
+      expect(find.text('ouvrir'), findsOneWidget);
+    });
+
+    testWidgets('une maison choisie dans une liste du menu est renvoyée à la carte', (tester) async {
+      await tester.runAsync(() => controller.changerStatut('a', Statut.aRepasser));
+      String? choisie;
+      await ouvrirMenu(tester, (id) => choisie = id);
+      expect(find.text('À repasser (1)'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('menu-a-repasser')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('7 Rue Jacques Prévert'));
+      await tester.pumpAndSettle();
+      expect(choisie, 'a');
+      expect(find.text('ouvrir'), findsOneWidget);
     });
   });
 

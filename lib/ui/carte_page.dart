@@ -15,7 +15,6 @@ import 'barre_avancement.dart';
 import 'conseil_installation.dart';
 import 'couche_parcelles.dart';
 import 'couche_position.dart';
-import 'listes_page.dart';
 import 'menu_page.dart';
 import 'panneau_statut.dart';
 import 'recherche_page.dart';
@@ -108,16 +107,10 @@ class _CartePageState extends State<CartePage> {
 
   void _recentrer(PositionGps p) => _carte.move(p.point, max(_carte.camera.zoom, 17));
 
-  void _ouvrirMenu() => Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => MenuPage(controller: _controller, plateforme: widget.plateforme),
-        ),
-      );
-
-  /// Listes « à repasser » / « non visitées » ; la maison choisie est
-  /// centrée sur la carte, panneau ouvert.
-  Future<void> _ouvrirListes() => _allerALaMaisonChoisie(ListesPage(controller: _controller));
+  /// Menu (listes, affichage, campagne, sauvegarde…). Une maison choisie dans
+  /// les listes du menu est centrée sur la carte, panneau ouvert.
+  Future<void> _ouvrirMenu() =>
+      _allerALaMaisonChoisie(MenuPage(controller: _controller, plateforme: widget.plateforme));
 
   /// Recherche d'adresse ; même retour sur la carte que les listes.
   Future<void> _ouvrirRecherche() => _allerALaMaisonChoisie(RecherchePage(controller: _controller));
@@ -128,7 +121,9 @@ class _CartePageState extends State<CartePage> {
     if (parcelle == null || !mounted) return;
     // La maison doit être visible : sinon on enlève le filtre.
     if (!_controller.estVisible(id!)) _controller.changerFiltre(Filtre.toutes);
-    _carte.move(parcelle.centre, max(_carte.camera.zoom, 17));
+    // La maison est placée au-dessus du milieu de l'écran, pour ne pas être
+    // cachée par le panneau qui s'ouvre en bas.
+    _carte.move(parcelle.centre, max(_carte.camera.zoom, 17), offset: const Offset(0, -110));
     _controller.selectionner(id);
   }
 
@@ -188,14 +183,13 @@ class _CartePageState extends State<CartePage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (!estProduction) const _BandeauTest(),
                   BarreAvancement(
                     controller: _controller,
                     onMenu: _ouvrirMenu,
-                    onListes: _ouvrirListes,
                     onRecherche: _ouvrirRecherche,
-                    afficherFiltre: true,
+                    estTest: !estProduction,
                   ),
+                  IndicateurFiltre(controller: _controller),
                   if (_conseilVisible) ...[
                     const SizedBox(height: 8),
                     ConseilInstallation(onFermer: () => setState(() => _conseilVisible = false)),
@@ -268,25 +262,6 @@ LatLng _centreDepart(JeuParcelles jeu) {
     lon += p.centre.longitude;
   }
   return LatLng(lat / parcelles.length, lon / parcelles.length);
-}
-
-/// Repère bien visible : on est sur l'environnement de test, pas sur l'app de la tournée.
-class _BandeauTest extends StatelessWidget {
-  const _BandeauTest();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: const Color(0xFFEF6C00), borderRadius: BorderRadius.circular(8)),
-      child: const Text(
-        'VERSION DE TEST – données séparées de l\'app de la tournée',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
 }
 
 class _IconeGps extends StatelessWidget {
