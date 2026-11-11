@@ -19,6 +19,8 @@ import '../models/statut.dart';
 /// - `memos` : id de la parcelle → `{"m": [noms des mémos], "t": date en ms}`.
 ///   Gardés d'une campagne à l'autre. Absence = aucun mémo.
 /// - `archives` : année → campagne terminée (statut de chaque parcelle).
+/// - `synchro`, `synchroAttente`, `synchroVersions` : synchronisation entre
+///   téléphones (réglages, changements à envoyer, dates connues).
 class TourneeRepository {
   TourneeRepository._(this._db);
 
@@ -31,6 +33,9 @@ class TourneeRepository {
   static final _meta = stringMapStoreFactory.store('meta');
   static final _memos = stringMapStoreFactory.store('memos');
   static final _archives = stringMapStoreFactory.store('archives');
+  static final _synchro = stringMapStoreFactory.store('synchro');
+  static final _attente = stringMapStoreFactory.store('synchroAttente');
+  static final _versions = stringMapStoreFactory.store('synchroVersions');
   static const _cleCampagne = 'campagne';
   static const _cleDernierExport = 'dernierExport';
   static const _cleSauvegarde = 'sauvegardeAvantImport';
@@ -136,6 +141,12 @@ class TourneeRepository {
     return memos;
   }
 
+  /// Date de la dernière modification des mémos de chaque parcelle.
+  Future<Map<String, DateTime>> lireDatesMemos() async => {
+        for (final e in await _memos.find(_db))
+          if (e.value['t'] case final int t) e.key: DateTime.fromMillisecondsSinceEpoch(t, isUtc: true),
+      };
+
   /// Enregistre les mémos d'une parcelle ; aucun mémo supprime l'enregistrement.
   Future<void> enregistrerMemos(String parcelleId, Set<Memo> memos, DateTime quand) async {
     final ref = _memos.record(parcelleId);
@@ -173,6 +184,61 @@ class TourneeRepository {
 
   Future<void> supprimerArchive(int annee) async {
     await _archives.record('$annee').delete(_db);
+  }
+
+  // --- Synchronisation entre téléphones -------------------------------------
+
+  /// Réglage ou curseur de la synchronisation (`null` si absent).
+  Future<Map<String, Object?>?> lireReglageSynchro(String cle) => _synchro.record(cle).get(_db);
+
+  /// Enregistre un réglage de synchronisation ; `null` l'efface.
+  Future<void> ecrireReglageSynchro(String cle, Map<String, Object?>? valeur) async {
+    final ref = _synchro.record(cle);
+    if (valeur == null) {
+      await ref.delete(_db);
+    } else {
+      await ref.put(_db, valeur);
+    }
+  }
+
+  /// Changements pas encore envoyés au serveur (clé du changement → JSON).
+  Future<Map<String, Map<String, Object?>>> lireAttente() async => {
+        for (final e in await _attente.find(_db)) e.key: e.value,
+      };
+
+  Future<void> mettreEnAttente(String cle, Map<String, Object?> changement) =>
+      _attente.record(cle).put(_db, changement);
+
+  /// Retire un changement envoyé, seulement s'il n'a pas été remplacé par un
+  /// plus récent entre-temps (même date [t]).
+  Future<void> retirerAttente(String cle, int t) async {
+    await _db.transaction((txn) async {
+      final ref = _attente.record(cle);
+      if ((await ref.get(txn))?['t'] == t) await ref.delete(txn);
+    });
+  }
+
+  /// Date (ms) de la dernière version connue de chaque statut / mémo.
+  Future<Map<String, int>> lireVersions() async => {
+        for (final e in await _versions.find(_db))
+          if (e.value['t'] case final int t) e.key: t,
+      };
+
+  Future<void> ecrireVersions(Map<String, int> versions) async {
+    await _db.transaction((txn) async {
+      for (final MapEntry(key: cle, value: t) in versions.entries) {
+        await _versions.record(cle).put(txn, {'t': t});
+      }
+    });
+  }
+
+  /// Efface tout l'état de la synchronisation (réglages, attente, versions).
+  Future<void> effacerSynchro() async {
+    await _db.transaction((txn) async {
+      await _synchro.delete(txn);
+      await _attente.delete(txn);
+      await _versions.delete(txn);
+    });
   }
 
   Future<void> fermer() => _db.close();

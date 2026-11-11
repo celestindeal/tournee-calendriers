@@ -56,7 +56,14 @@ class _CartePageState extends State<CartePage> {
     _controller.addListener(_afficherErreur);
     _position.addListener(_surPosition);
     // GPS coupé en arrière-plan (batterie), relancé au retour (ARCHITECTURE §7.6).
-    _cycleDeVie = AppLifecycleListener(onHide: _position.mettreEnPause, onShow: _position.reprendre);
+    _cycleDeVie = AppLifecycleListener(
+      onHide: _position.mettreEnPause,
+      onShow: () {
+        _position.reprendre();
+        // Au retour dans l'app : récupérer tout de suite ce que les autres ont fait.
+        _controller.synchro?.synchroniser();
+      },
+    );
   }
 
   @override

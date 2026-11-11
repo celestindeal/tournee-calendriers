@@ -3,18 +3,13 @@ import 'package:flutter/material.dart';
 import '../models/filtre.dart';
 import '../models/statut.dart';
 import '../state/tournee_controller.dart';
+import 'synchro_page.dart';
 
 /// Barre fine en haut de la carte : compteur « 132 / 480 faits (27 %) »,
 /// barre de progression, nombre à repasser (F5), loupe et menu.
 /// La légende et le filtre sont dans le menu, pour laisser la place à la carte.
 class BarreAvancement extends StatelessWidget {
-  const BarreAvancement({
-    super.key,
-    required this.controller,
-    this.onMenu,
-    this.onRecherche,
-    this.estTest = false,
-  });
+  const BarreAvancement({super.key, required this.controller, this.onMenu, this.onRecherche, this.estTest = false});
 
   final TourneeController controller;
 
@@ -94,6 +89,14 @@ class BarreAvancement extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          // État de la synchronisation entre téléphones, si elle est réglée.
+                          if (controller.synchro case final synchro? when synchro.active) ...[
+                            const SizedBox(width: 6),
+                            ListenableBuilder(
+                              listenable: synchro,
+                              builder: (context, _) => IconeSynchro(key: const Key('icone-synchro'), synchro: synchro),
+                            ),
+                          ],
                         ],
                       ),
                     ],

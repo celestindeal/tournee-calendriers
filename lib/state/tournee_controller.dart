@@ -12,6 +12,8 @@ import '../models/jeu_parcelles.dart';
 import '../models/memo.dart';
 import '../models/parcelle.dart';
 import '../models/statut.dart';
+import '../synchro/changement.dart';
+import '../synchro/synchro_controller.dart';
 import 'migration.dart';
 
 /// État de la tournée affiché par l'interface (docs/ARCHITECTURE.md §5.1).
@@ -20,12 +22,9 @@ import 'migration.dart';
 /// dans la base. Si l'écriture échoue, l'ancien état est remis et
 /// [derniereErreur] est renseignée.
 class TourneeController extends ChangeNotifier {
-  TourneeController({
-    required this._repo,
-    required this.jeu,
-    DateTime Function()? horloge,
-  })  : _horloge = horloge ?? DateTime.now,
-        _parId = {for (final b in jeu.parcelles) b.id: b};
+  TourneeController({required this._repo, required this.jeu, DateTime Function()? horloge})
+    : _horloge = horloge ?? DateTime.now,
+      _parId = {for (final b in jeu.parcelles) b.id: b};
 
   /// Nombre de campagnes terminées gardées (les plus anciennes sont effacées :
   /// on ne conserve pas l'historique des maisons indéfiniment, RGPD).
@@ -44,6 +43,16 @@ class TourneeController extends ChangeNotifier {
 
   /// Mémos par parcelle (gardés d'une campagne à l'autre).
   final Map<String, Set<Memo>> _memos = {};
+
+  /// Date de la dernière modification des mémos de chaque parcelle.
+  final Map<String, DateTime> _datesMemos = {};
+
+  /// Synchronisation entre téléphones (null tant qu'elle n'est pas branchée).
+  SynchroController? synchro;
+
+  /// Appelé après chaque modification enregistrée sur ce téléphone (pour
+  /// l'envoyer aux autres). Pas appelé pour ce qui vient des autres téléphones.
+  void Function(List<Changement>)? surChangementsLocaux;
 
   /// Campagnes terminées, de la plus récente à la plus ancienne.
   List<ArchiveCampagne> _archives = const [];
@@ -94,11 +103,7 @@ class TourneeController extends ChangeNotifier {
     _statutsReportes = migration.reportes;
     if (migration.reportes > 0) {
       await _repo.enregistrerSauvegardeAvantParcelles(
-        ExportService.exporter(
-          etats: etats.values,
-          versionCarte: 'suivi-par-batiment',
-          maintenant: _horloge(),
-        ),
+        ExportService.exporter(etats: etats.values, versionCarte: 'suivi-par-batiment', maintenant: _horloge()),
       );
       await _repo.remplacerTout(migration.etats.values);
       etats = migration.etats;
@@ -110,6 +115,9 @@ class TourneeController extends ChangeNotifier {
     _memos
       ..clear()
       ..addAll(await _repo.lireMemos());
+    _datesMemos
+      ..clear()
+      ..addAll(await _repo.lireDatesMemos());
     _archives = await _repo.lireArchives();
     _campagne = await _repo.lireCampagne();
     if (_campagne == null) {
@@ -141,12 +149,12 @@ class TourneeController extends ChangeNotifier {
   }
 
   Avancement get avancement => Avancement.calculer(
-        nbParcelles: jeu.parcelles.length,
-        statuts: [
-          for (final e in _etats.entries)
-            if (_parId.containsKey(e.key)) e.value.statut,
-        ],
-      );
+    nbParcelles: jeu.parcelles.length,
+    statuts: [
+      for (final e in _etats.entries)
+        if (_parId.containsKey(e.key)) e.value.statut,
+    ],
+  );
 
   /// Change le statut d'une parcelle et l'enregistre immédiatement (F2, F3, F4).
   /// Renvoie `false` si l'enregistrement a échoué (l'ancien statut est remis).
@@ -158,11 +166,11 @@ class TourneeController extends ChangeNotifier {
     notifyListeners();
     try {
       await _repo.enregistrer(nouveau);
+      _signaler([_changementStatut(nouveau)]);
       return true;
     } catch (e) {
       // Ne pas écraser un changement plus récent fait entre-temps.
-      if (identical(_etats[parcelleId], nouveau) ||
-          (statut == Statut.nonVisite && !_etats.containsKey(parcelleId))) {
+      if (identical(_etats[parcelleId], nouveau) || (statut == Statut.nonVisite && !_etats.containsKey(parcelleId))) {
         _appliquer(parcelleId, ancien);
       }
       _derniereErreur = 'Le statut n\'a pas pu être enregistré. Réessayez.';
@@ -195,8 +203,11 @@ class TourneeController extends ChangeNotifier {
     if (!apres.remove(memo)) apres.add(memo);
     _appliquerMemos(parcelleId, apres);
     notifyListeners();
+    final quand = _horloge().toUtc();
     try {
-      await _repo.enregistrerMemos(parcelleId, apres, _horloge().toUtc());
+      await _repo.enregistrerMemos(parcelleId, apres, quand);
+      _datesMemos[parcelleId] = quand;
+      _signaler([Changement.memos(parcelleId: parcelleId, memos: apres, t: quand.millisecondsSinceEpoch)]);
       return true;
     } catch (e) {
       _appliquerMemos(parcelleId, avant);
@@ -251,13 +262,15 @@ class TourneeController extends ChangeNotifier {
     }
     final maintenant = _horloge().toUtc();
     if (actuelle != null) {
-      await _repo.enregistrerArchive(ArchiveCampagne(
-        annee: actuelle.annee,
-        debut: actuelle.debut,
-        fin: maintenant,
-        versionCarte: actuelle.versionCarte,
-        statuts: {for (final e in _etats.values) e.parcelleId: e.statut},
-      ));
+      await _repo.enregistrerArchive(
+        ArchiveCampagne(
+          annee: actuelle.annee,
+          debut: actuelle.debut,
+          fin: maintenant,
+          versionCarte: actuelle.versionCarte,
+          statuts: {for (final e in _etats.values) e.parcelleId: e.statut},
+        ),
+      );
     }
     var archives = await _repo.lireArchives();
     for (final ancienne in archives.skip(campagnesArchiveesGardees)) {
@@ -282,12 +295,12 @@ class TourneeController extends ChangeNotifier {
   /// Contenu du fichier d'export. Synchrone : l'interface peut ouvrir la
   /// feuille de partage dans la foulée du toucher (ARCHITECTURE §7.7).
   String contenuExport(DateTime maintenant) => ExportService.exporter(
-        etats: _etats.values,
-        versionCarte: jeu.version,
-        campagne: _campagne,
-        maintenant: maintenant,
-        memos: _memos,
-      );
+    etats: _etats.values,
+    versionCarte: jeu.version,
+    campagne: _campagne,
+    maintenant: maintenant,
+    memos: _memos,
+  );
 
   Future<void> noterExport(DateTime quand) async {
     _dernierExport = quand.toUtc();
@@ -299,11 +312,11 @@ class TourneeController extends ChangeNotifier {
   /// Lève une [FormatException] au message lisible si le fichier est refusé.
   /// Un export fait avant le passage aux parcelles est reporté sur les parcelles.
   ResultatImport lireImport(String texte) => ExportService.lire(
-        texte,
-        idsConnus: _parId.keys.toSet(),
-        versionCarte: jeu.version,
-        correspondances: jeu.parcelleDeLAncienId,
-      );
+    texte,
+    idsConnus: _parId.keys.toSet(),
+    versionCarte: jeu.version,
+    correspondances: jeu.parcelleDeLAncienId,
+  );
 
   /// Remplace tous les statuts (et les mémos, si le fichier en contient) par
   /// ceux du fichier. Une copie de la tournée actuelle est gardée d'abord,
@@ -312,6 +325,7 @@ class TourneeController extends ChangeNotifier {
     await _repo.enregistrerSauvegardeAvantImport(contenuExport(_horloge()));
     await _appliquerImport(resultat);
     _peutAnnulerImport = true;
+    _signaler(toutPourSynchro());
     notifyListeners();
   }
 
@@ -328,6 +342,7 @@ class TourneeController extends ChangeNotifier {
     await _appliquerImport(resultat);
     await _repo.effacerSauvegardeAvantImport();
     _peutAnnulerImport = false;
+    _signaler(toutPourSynchro());
     notifyListeners();
   }
 
@@ -336,10 +351,17 @@ class TourneeController extends ChangeNotifier {
     _remplacerEnMemoire(resultat.etats);
     final memos = resultat.memos;
     if (memos != null) {
-      await _repo.remplacerMemos(memos, _horloge().toUtc());
+      final quand = _horloge().toUtc();
+      await _repo.remplacerMemos(memos, quand);
       _memos
         ..clear()
-        ..addAll(memos);
+        ..addAll({
+          for (final e in memos.entries)
+            if (e.value.isNotEmpty) e.key: e.value,
+        });
+      _datesMemos
+        ..clear()
+        ..addAll({for (final id in _memos.keys) id: quand});
     }
   }
 
@@ -348,5 +370,64 @@ class TourneeController extends ChangeNotifier {
     _etats
       ..clear()
       ..addAll({for (final e in etats) e.parcelleId: e});
+  }
+  // --- Synchronisation entre téléphones -----------------------------------
+
+  void _signaler(List<Changement> changements) {
+    if (changements.isNotEmpty) surChangementsLocaux?.call(changements);
+  }
+
+  Changement _changementStatut(EtatParcelle e) => Changement.statut(
+    parcelleId: e.parcelleId,
+    campagne: _campagne!.annee,
+    statut: e.statut,
+    t: e.modifieLe.millisecondsSinceEpoch,
+  );
+
+  /// Tous les statuts de la campagne en cours et tous les mémos, pour un
+  /// premier envoi au serveur (le serveur garde ce qui est le plus récent).
+  List<Changement> toutPourSynchro() => [
+    if (_campagne != null)
+      for (final e in _etats.values)
+        if (_parId.containsKey(e.parcelleId)) _changementStatut(e),
+    for (final MapEntry(key: id, value: m) in _memos.entries)
+      if (_parId.containsKey(id))
+        Changement.memos(parcelleId: id, memos: m, t: (_datesMemos[id] ?? DateTime.utc(2000)).millisecondsSinceEpoch),
+  ];
+
+  /// Date (ms) de ce que ce téléphone connaît pour ce changement, ou `null`.
+  int? dateLocale(Changement c) => switch (c.type) {
+    TypeChangement.statut =>
+      c.campagne == _campagne?.annee ? _etats[c.parcelleId]?.modifieLe.millisecondsSinceEpoch : null,
+    TypeChangement.memos => _datesMemos[c.parcelleId]?.millisecondsSinceEpoch,
+  };
+
+  /// Applique des changements reçus des autres téléphones (déjà reconnus plus
+  /// récents). Ignore les maisons inconnues de la carte et les statuts d'une
+  /// autre campagne.
+  Future<void> appliquerDistants(List<Changement> changements) async {
+    var modifie = false;
+    for (final c in changements) {
+      if (!_parId.containsKey(c.parcelleId)) continue;
+      switch (c.type) {
+        case TypeChangement.statut:
+          final statut = c.statut;
+          if (statut == null || c.campagne != _campagne?.annee) continue;
+          final etat = EtatParcelle(parcelleId: c.parcelleId, statut: statut, modifieLe: c.date);
+          await _repo.enregistrer(etat);
+          _appliquer(c.parcelleId, etat);
+          if (_selectionId == c.parcelleId && !_filtre.garde(statut)) _selectionId = null;
+        case TypeChangement.memos:
+          await _repo.enregistrerMemos(c.parcelleId, c.memos, c.date);
+          _appliquerMemos(c.parcelleId, c.memos);
+          if (c.memos.isEmpty) {
+            _datesMemos.remove(c.parcelleId);
+          } else {
+            _datesMemos[c.parcelleId] = c.date;
+          }
+      }
+      modifie = true;
+    }
+    if (modifie) notifyListeners();
   }
 }

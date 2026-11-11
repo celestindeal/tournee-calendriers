@@ -14,6 +14,8 @@ import 'formats.dart';
 import 'listes_page.dart';
 import 'nouvelle_campagne_page.dart';
 import 'recherche_page.dart';
+import 'synchro_page.dart';
+import '../synchro/synchro_controller.dart';
 
 /// Menu et réglages : listes des maisons, affichage (filtre F9, légende),
 /// campagne (F11), sauvegarde (export / import, F8), diagnostic, sources.
@@ -25,10 +27,9 @@ class MenuPage extends StatelessWidget {
   final Plateforme plateforme;
 
   void _signaler(BuildContext context, String message, {bool erreur = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: erreur ? Theme.of(context).colorScheme.error : null,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: erreur ? Theme.of(context).colorScheme.error : null),
+    );
   }
 
   Future<void> _exporter(BuildContext context) => exporterTournee(context, controller);
@@ -68,7 +69,9 @@ class MenuPage extends StatelessWidget {
     }
     if (!context.mounted) return;
 
-    final quand = resultat.exporteLe == null ? '' : ' (sauvegarde ${decrireMoment(resultat.exporteLe!, DateTime.now())})';
+    final quand = resultat.exporteLe == null
+        ? ''
+        : ' (sauvegarde ${decrireMoment(resultat.exporteLe!, DateTime.now())})';
     final confirme = await _confirmer(
       context,
       titre: 'Remplacer la tournée ?',
@@ -97,7 +100,8 @@ class MenuPage extends StatelessWidget {
     final confirme = await _confirmer(
       context,
       titre: 'Annuler le dernier import ?',
-      texte: 'La tournée revient à son état d\'avant l\'import. '
+      texte:
+          'La tournée revient à son état d\'avant l\'import. '
           'Les maisons cochées depuis l\'import seront perdues.',
       action: 'Annuler l\'import',
     );
@@ -112,27 +116,30 @@ class MenuPage extends StatelessWidget {
   }
 
   Future<void> _alerte(BuildContext context, String titre, String texte) => showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(titre),
-          content: Text(texte),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
-        ),
-      );
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(titre),
+      content: Text(texte),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+    ),
+  );
 
-  Future<bool?> _confirmer(BuildContext context,
-          {required String titre, required String texte, required String action}) =>
-      showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(titre),
-          content: Text(texte),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Retour')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(action)),
-          ],
-        ),
-      );
+  Future<bool?> _confirmer(
+    BuildContext context, {
+    required String titre,
+    required String texte,
+    required String action,
+  }) => showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(titre),
+      content: Text(texte),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Retour')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(action)),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -144,11 +151,14 @@ class MenuPage extends StatelessWidget {
         builder: (context, _) {
           final dernier = controller.dernierExport;
           final maintenant = DateTime.now();
-          final exportEnRetard = controller.nbEtatsEnregistres > 0 &&
+          final exportEnRetard =
+              controller.nbEtatsEnregistres > 0 &&
               (dernier == null || maintenant.difference(dernier) > const Duration(days: 2));
           final campagne = controller.campagne;
           final nbARepasser = controller.avancement.aRepasser;
-          final nbNonVisitees = controller.jeu.parcelles.where((p) => controller.statutDe(p.id) == Statut.nonVisite).length;
+          final nbNonVisitees = controller.jeu.parcelles
+              .where((p) => controller.statutDe(p.id) == Statut.nonVisite)
+              .length;
           return ListView(
             children: [
               const _Titre('Maisons'),
@@ -177,8 +187,10 @@ class MenuPage extends StatelessWidget {
               for (final f in Filtre.values)
                 ListTile(
                   key: Key('filtre-${f.name}'),
-                  leading: Icon(f == controller.filtre ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                      color: f == controller.filtre ? theme.colorScheme.primary : null),
+                  leading: Icon(
+                    f == controller.filtre ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    color: f == controller.filtre ? theme.colorScheme.primary : null,
+                  ),
                   title: Text(switch (f) {
                     Filtre.toutes => 'Toutes les maisons',
                     Filtre.nonVisitees => 'Seulement les non visitées',
@@ -200,12 +212,14 @@ class MenuPage extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.event_note),
                   title: Text('Commencée ${dateCourte(campagne.debut)}'),
-                  subtitle: Text([
-                    controller.avancement.resume,
-                    for (final a in controller.archives)
-                      'Campagne ${a.annee} : ${a.nombre(Statut.achete) + a.nombre(Statut.refus)} faits, '
-                          '${a.nombre(Statut.achete)} achetés',
-                  ].join('\n')),
+                  subtitle: Text(
+                    [
+                      controller.avancement.resume,
+                      for (final a in controller.archives)
+                        'Campagne ${a.annee} : ${a.nombre(Statut.achete) + a.nombre(Statut.refus)} faits, '
+                            '${a.nombre(Statut.achete)} achetés',
+                    ].join('\n'),
+                  ),
                 ),
                 ListTile(
                   key: const Key('menu-nouvelle-campagne'),
@@ -215,6 +229,28 @@ class MenuPage extends StatelessWidget {
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute<void>(builder: (_) => NouvelleCampagnePage(controller: controller)),
+                  ),
+                ),
+                const Divider(),
+              ],
+              if (controller.synchro case final synchro?) ...[
+                const _Titre('Équipe'),
+                ListenableBuilder(
+                  listenable: synchro,
+                  builder: (context, _) => ListTile(
+                    key: const Key('menu-synchro'),
+                    leading: IconeSynchro(synchro: synchro, taille: 24),
+                    title: const Text('Synchronisation'),
+                    subtitle: Text(switch (synchro) {
+                      SynchroController(active: false) => 'Partager la tournée entre téléphones',
+                      SynchroController(nbEnAttente: final n) when n > 0 =>
+                        '${synchro.etat.libelle} · $n changement(s) à envoyer',
+                      SynchroController(dernierSucces: final d?) =>
+                        '${synchro.etat.libelle} · ${decrireMoment(d.toLocal(), maintenant)}',
+                      _ => synchro.etat.libelle,
+                    }),
+                    onTap: () =>
+                        Navigator.push(context, MaterialPageRoute<void>(builder: (_) => SynchroPage(synchro: synchro))),
                   ),
                 ),
                 const Divider(),

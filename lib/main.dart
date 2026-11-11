@@ -12,6 +12,8 @@ import 'platform/gps.dart';
 import 'platform/navigateur.dart';
 import 'state/position_controller.dart';
 import 'state/tournee_controller.dart';
+import 'synchro/serveur_synchro.dart';
+import 'synchro/synchro_controller.dart';
 
 void main() {
   // Toutes les erreurs vont dans le journal de la page Diagnostic.
@@ -24,11 +26,13 @@ void main() {
     return false;
   };
 
-  runApp(TourneeApp(
-    demarrer: _demarrer,
-    plateforme: PlateformeNavigateur(),
-    position: PositionController(source: fluxGeolocator),
-  ));
+  runApp(
+    TourneeApp(
+      demarrer: _demarrer,
+      plateforme: PlateformeNavigateur(),
+      position: PositionController(source: fluxGeolocator),
+    ),
+  );
 }
 
 Future<TourneeController> _demarrer() async {
@@ -41,5 +45,18 @@ Future<TourneeController> _demarrer() async {
   final repo = await TourneeRepository.ouvrir(databaseFactoryWeb, nom: nomBase);
   final controller = TourneeController(repo: repo, jeu: jeu);
   await controller.charger();
+  // Synchronisation entre téléphones (si une adresse de serveur est réglée).
+  // Tables séparées pour l'environnement de test.
+  final synchro = SynchroController(
+    repo: repo,
+    tournee: controller,
+    fabriqueServeur: (c) => ServeurPocketBase(
+      adresse: c.adresse,
+      code: c.code,
+      prefixeTables: estProduction ? '' : 'test_',
+      appareil: c.appareil,
+    ),
+  );
+  await synchro.charger();
   return controller;
 }
