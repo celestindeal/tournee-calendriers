@@ -16,7 +16,7 @@ class TourneeApp extends StatefulWidget {
     required this.position,
   });
 
-  /// Charge les bâtiments et ouvre la base. Fourni par main.dart.
+  /// Charge les parcelles et ouvre la base. Fourni par main.dart.
   final Future<TourneeController> Function() demarrer;
 
   final Plateforme plateforme;

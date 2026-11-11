@@ -1,12 +1,18 @@
-// Prépare assets/data/batiments.json à partir du cadastre Etalab et de la
-// Base Adresse Nationale (BAN). À lancer une fois, avant la mise en ligne :
+// Prépare assets/data/parcelles.json à partir du cadastre Etalab (bâtiments
+// et parcelles) et de la Base Adresse Nationale (BAN). À lancer une fois,
+// avant la mise en ligne :
 //
 //   dart run tool/preparer_donnees.dart
 //
+// L'unité de suivi est la PARCELLE cadastrale qui contient au moins un
+// bâtiment gardé : on touche un bâtiment, toute la parcelle prend la couleur.
+// Chaque parcelle garde les anciens identifiants de ses bâtiments (géohash),
+// pour reporter les statuts saisis avant le passage aux parcelles.
+//
 // Options :
 //   --insee 42234            code INSEE de la commune
-//   --surface-min 20         surface minimale gardée, en m²
-//   --distance-max 60        distance maximale bâtiment → adresse, en mètres
+//   --surface-min 20         surface minimale des bâtiments gardés, en m²
+//   --distance-max 60        distance maximale bâtiment → adresse (secours), en mètres
 //   --types 01,03            types de bâti gardés (01 = dur, 02 = léger, 03 = autre)
 //   --retelecharger          retélécharge les fichiers bruts même s'ils existent
 //
@@ -21,10 +27,15 @@ import 'dart:math';
 
 const _urlCadastre =
     'https://cadastre.data.gouv.fr/data/etalab-cadastre/latest/geojson/communes/{dep}/{insee}/cadastre-{insee}-batiments.json.gz';
+const _urlParcelles =
+    'https://cadastre.data.gouv.fr/data/etalab-cadastre/latest/geojson/communes/{dep}/{insee}/cadastre-{insee}-parcelles.json.gz';
 const _urlBan = 'https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-{dep}.csv.gz';
 
-/// Tolérance de simplification des contours, en mètres.
+/// Tolérance de simplification des contours de bâtiments, en mètres.
 const _toleranceSimplification = 0.3;
+
+/// Tolérance de simplification des contours de parcelles, en mètres.
+const _toleranceParcelles = 0.5;
 
 Future<void> main(List<String> args) async {
   String option(String nom, String defaut) {
@@ -41,16 +52,18 @@ Future<void> main(List<String> args) async {
 
   final racine = File.fromUri(Platform.script).parent.parent;
   final dossierBrut = Directory('${racine.path}/donnees_brutes')..createSync(recursive: true);
-  final sortie = File('${racine.path}/assets/data/batiments.json');
+  final sortie = File('${racine.path}/assets/data/parcelles.json');
 
   // 1. Téléchargement des fichiers bruts (si absents).
   final fCadastre = File('${dossierBrut.path}/cadastre-$insee-batiments.json.gz');
+  final fParcelles = File('${dossierBrut.path}/cadastre-$insee-parcelles.json.gz');
   final fBan = File('${dossierBrut.path}/adresses-$dep.csv.gz');
   final srcCadastre = await _obtenir(
     _urlCadastre.replaceAll('{dep}', dep).replaceAll('{insee}', insee),
     fCadastre,
     retelecharger,
   );
+  await _obtenir(_urlParcelles.replaceAll('{dep}', dep).replaceAll('{insee}', insee), fParcelles, retelecharger);
   final srcBan = await _obtenir(_urlBan.replaceAll('{dep}', dep), fBan, retelecharger);
 
   // 2. Lecture des bâtiments.
@@ -72,7 +85,10 @@ Future<void> main(List<String> args) async {
       final c = ligne.split(';');
       if (col == null) {
         col = {for (var i = 0; i < c.length; i++) c[i]: i};
-        for (final requis in ['code_insee', 'numero', 'rep', 'nom_voie', 'lon', 'lat', 'type_position', 'nom_ld', 'nom_commune']) {
+        for (final requis in [
+          'code_insee', 'numero', 'rep', 'nom_voie', 'lon', 'lat', 'type_position', 'nom_ld', 'nom_commune', //
+          'cad_parcelles',
+        ]) {
           if (!col.containsKey(requis)) _erreur('Colonne "$requis" absente du fichier BAN.');
         }
         continue;
@@ -83,11 +99,16 @@ Future<void> main(List<String> args) async {
       if (lon == null || lat == null) continue;
       nomCommune ??= c[col['nom_commune']!];
       final pt = proj.versMetres(lat, lon);
+      final numero = c[col['numero']!];
       adresses.add(_Adresse(
         pt.x,
         pt.y,
-        _libelle(c[col['numero']!], c[col['rep']!], c[col['nom_voie']!], c[col['nom_ld']!]),
+        _libelle(numero, c[col['rep']!], c[col['nom_voie']!], c[col['nom_ld']!]),
         c[col['type_position']!],
+        voie: c[col['nom_voie']!],
+        numero: int.tryParse(numero) ?? 0,
+        // Parcelles cadastrales liées à l'adresse, séparées par « | ».
+        parcelles: c[col['cad_parcelles']!].split('|').where((p) => p.isNotEmpty).toList(),
       ));
     }
   }
@@ -146,6 +167,7 @@ Future<void> main(List<String> args) async {
       geohash: _geohash(centreGeo.y, centreGeo.x, 9),
       surface: surface,
       centre: centreGeo,
+      centreM: centre,
       adresse: dMin <= distanceMax ? plusProche : null,
       parties: [
         for (final r in simplifiees)
@@ -171,33 +193,113 @@ Future<void> main(List<String> args) async {
     if (n > 1) collisions++;
   }
 
-  // 6. Écriture du fichier.
-  var minLat = 90.0, minLon = 180.0, maxLat = -90.0, maxLon = -180.0;
+  // 6. Parcelles : chaque bâtiment est rattaché à la parcelle qui contient son centre.
+  final geoParcelles = jsonDecode(utf8.decode(gzip.decode(fParcelles.readAsBytesSync()))) as Map<String, dynamic>;
+  final parcellesBrutes = <String, _ParcelleBrute>{};
+  for (final f in (geoParcelles['features'] as List).cast<Map<String, dynamic>>()) {
+    final g = f['geometry'] as Map<String, dynamic>;
+    final polygones = g['type'] == 'Polygon' ? [g['coordinates'] as List] : (g['coordinates'] as List).cast<List>();
+    final props = f['properties'] as Map<String, dynamic>;
+    final id = f['id'] as String;
+    parcellesBrutes[id] = _ParcelleBrute(
+      id,
+      // Contour extérieur seulement (les enclaves sont ignorées).
+      [
+        for (final poly in polygones)
+          [for (final c in (poly.first as List)) proj.versMetres((c as List)[1] as num, c[0] as num)],
+      ],
+      (props['contenance'] as num?)?.toDouble(),
+    );
+  }
+  final batimentsParParcelle = <String, List<_Batiment>>{};
+  final orphelins = <_Batiment>[];
   for (final b in gardes) {
-    for (final r in b.parties) {
-      for (final p in r) {
-        minLat = min(minLat, p.y);
-        maxLat = max(maxLat, p.y);
-        minLon = min(minLon, p.x);
-        maxLon = max(maxLon, p.x);
+    final p = parcellesBrutes.values.where((p) => p.contient(b.centreM)).firstOrNull;
+    if (p == null) {
+      orphelins.add(b);
+    } else {
+      batimentsParParcelle.putIfAbsent(p.id, () => []).add(b);
+    }
+  }
+
+  // Adresses de chaque parcelle : liées par la BAN (colonne cad_parcelles,
+  // peu remplie à Saint-Héand) ou dont le point tombe dans la parcelle.
+  final adressesBan = <String, List<_Adresse>>{};
+  for (final a in adresses) {
+    for (final p in a.parcelles) {
+      adressesBan.putIfAbsent(p, () => []).add(a);
+    }
+  }
+  for (final id in batimentsParParcelle.keys) {
+    final p = parcellesBrutes[id]!;
+    for (final a in adresses) {
+      if (p.contient(Point(a.x, a.y))) adressesBan.putIfAbsent(id, () => []).add(a);
+    }
+  }
+
+  // 7. Écriture du fichier.
+  var avecAdresseBan = 0, avecAdresseProche = 0, sansAdresse = 0;
+  final unites = <Map<String, Object>>[];
+  List<List<double>> versCoords(List<Point<double>> contourDegres) => [for (final p in contourDegres) _coord(p)];
+  for (final id in batimentsParParcelle.keys.toList()..sort()) {
+    final brute = parcellesBrutes[id]!;
+    final bats = batimentsParParcelle[id]!..sort((a, b) => b.surface.compareTo(a.surface));
+    final liees = adressesBan[id] ?? const <_Adresse>[];
+    final String? adresse;
+    if (liees.isNotEmpty) {
+      adresse = _libelleParcelle(liees);
+      avecAdresseBan++;
+    } else {
+      // Secours : l'adresse la plus proche du bâtiment principal (≤ distance-max).
+      adresse = bats.map((b) => b.adresse?.libelle).whereType<String>().firstOrNull;
+      adresse == null ? sansAdresse++ : avecAdresseProche++;
+    }
+    unites.add({
+      'id': id,
+      'a': ?adresse,
+      's': (brute.contenance ?? brute.surface).roundToDouble(),
+      'c': _coord(bats.first.centre),
+      'p': [
+        for (final r in brute.contours)
+          // Simplifié, puis sans le point de fermeture (flutter_map ferme seul).
+          versCoords([for (final p in _simplifierFerme(r, _toleranceParcelles)) proj.versDegres(p)]),
+      ],
+      'b': [
+        for (final b in bats)
+          for (final r in b.parties) versCoords(r),
+      ],
+      'anciens': [for (final b in bats) b.id],
+    });
+  }
+  // Bâtiments hors de toute parcelle (domaine public…) : suivis seuls.
+  for (final b in orphelins) {
+    unites.add({
+      'id': 'bat-${b.id}',
+      'a': ?b.adresse?.libelle,
+      's': b.surface.roundToDouble(),
+      'c': _coord(b.centre),
+      'p': [for (final r in b.parties) versCoords(r)],
+      'b': [for (final r in b.parties) versCoords(r)],
+      'anciens': [b.id],
+    });
+    b.adresse == null ? sansAdresse++ : avecAdresseProche++;
+  }
+
+  var minLat = 90.0, minLon = 180.0, maxLat = -90.0, maxLon = -180.0;
+  for (final u in unites) {
+    for (final contour in u['p']! as List) {
+      for (final c in contour as List<List<double>>) {
+        minLat = min(minLat, c[0]);
+        maxLat = max(maxLat, c[0]);
+        minLon = min(minLon, c[1]);
+        maxLon = max(maxLon, c[1]);
       }
     }
   }
-  final listeBatiments = [
-    for (final b in gardes)
-      {
-        'id': b.id,
-        if (b.adresse != null) 'a': b.adresse!.libelle,
-        's': double.parse(b.surface.toStringAsFixed(1)),
-        'c': _coord(b.centre),
-        'p': [
-          for (final r in b.parties) [for (final p in r) _coord(p)],
-        ],
-      },
-  ];
-  final empreinte = _fnv1a(jsonEncode(listeBatiments));
+  final empreinte = _fnv1a(jsonEncode(unites));
   final millesimeCadastre = srcCadastre['millesime'] ?? 'inconnu';
   final donnees = {
+    'format': 2, // 2 = suivi par parcelle (1 = par bâtiment, avant le 11/11/2026)
     'version': '$millesimeCadastre-$empreinte',
     'commune': {'insee': insee, 'nom': nomCommune},
     'sources': {
@@ -214,21 +316,22 @@ Future<void> main(List<String> args) async {
       [_arrondi(minLat), _arrondi(minLon)],
       [_arrondi(maxLat), _arrondi(maxLon)],
     ],
-    'batiments': listeBatiments,
+    'parcelles': unites,
   };
   sortie.parent.createSync(recursive: true);
   sortie.writeAsStringSync(jsonEncode(donnees));
+  // L'ancien fichier (suivi par bâtiment) n'est plus utilisé.
+  final ancien = File('${racine.path}/assets/data/batiments.json');
+  if (ancien.existsSync()) ancien.deleteSync();
 
-  // 7. Bilan.
-  final avecAdresse = gardes.where((b) => b.adresse != null).length;
-  final adressesUtilisees = gardes.map((b) => b.adresse).whereType<_Adresse>().toSet();
-  final parAdresse = <_Adresse, int>{};
-  for (final b in gardes) {
-    if (b.adresse != null) parAdresse[b.adresse!] = (parAdresse[b.adresse!] ?? 0) + 1;
-  }
+  // 8. Bilan.
   final tailleKo = sortie.lengthSync() / 1024;
   final tailleGzKo = gzip.encode(sortie.readAsBytesSync()).length / 1024;
   int nbDist(double max) => distances.where((d) => d <= max).length;
+  final repartition = <int, int>{};
+  for (final l in batimentsParParcelle.values) {
+    repartition[min(l.length, 5)] = (repartition[min(l.length, 5)] ?? 0) + 1;
+  }
 
   print('Commune ............... $nomCommune ($insee)');
   print('Cadastre .............. millésime $millesimeCadastre');
@@ -241,13 +344,18 @@ Future<void> main(List<String> args) async {
   print('Points des contours ... $ptsAvant → $ptsApres après simplification');
   print('Collisions d\'id ....... $collisions (résolues par suffixe)');
   print('');
-  print('Distance à l\'adresse la plus proche :');
+  print('Distance bâtiment → adresse la plus proche :');
   for (final d in [20.0, 40.0, 60.0, 100.0]) {
     print('  ≤ ${d.toStringAsFixed(0).padLeft(3)} m : ${nbDist(d)} (${(100 * nbDist(d) / gardes.length).toStringAsFixed(0)} %)');
   }
-  print('Bâtiments avec adresse  $avecAdresse / ${gardes.length} (seuil $distanceMax m)');
-  print('Adresses BAN utilisées  ${adressesUtilisees.length} / ${adresses.length}');
-  print('Max bâtiments / adresse ${parAdresse.values.fold(0, max)}');
+  print('');
+  print('Parcelles cadastrales . ${parcellesBrutes.length}');
+  print('Unités suivies ........ ${unites.length}  (${batimentsParParcelle.length} parcelles + ${orphelins.length} bâtiments hors parcelle)');
+  print('Bâtiments par parcelle  ${(repartition.keys.toList()..sort()).map((k) => '$k${k == 5 ? '+' : ''}: ${repartition[k]}').join('   ')}');
+  print('Adresse ............... $avecAdresseBan dans la parcelle (ou liée par la BAN), '
+      '$avecAdresseProche la plus proche, $sansAdresse sans');
+  print('Parcelles à 2 adresses+ ${unites.where((u) => (u['a'] as String?)?.contains(' / ') ?? false).length}');
+  print('Anciens ids reportés .. ${unites.fold<int>(0, (n, u) => n + (u['anciens']! as List).length)} / ${gardes.length}');
   print('');
   print('Fichier ............... ${sortie.path}');
   print('Taille ................ ${tailleKo.toStringAsFixed(0)} Ko (${tailleGzKo.toStringAsFixed(0)} Ko compressé)');
@@ -414,19 +522,92 @@ String _geohash(double lat, double lon, int precision) {
 // Divers
 
 class _Adresse {
-  _Adresse(this.x, this.y, this.libelle, this.typePosition);
+  _Adresse(this.x, this.y, this.libelle, this.typePosition,
+      {required this.voie, required this.numero, required this.parcelles});
   final double x, y;
-  final String libelle, typePosition;
+  final String libelle, typePosition, voie;
+  final int numero;
+
+  /// Identifiants des parcelles cadastrales liées (colonne cad_parcelles de la BAN).
+  final List<String> parcelles;
 }
 
 class _Batiment {
-  _Batiment({required this.geohash, required this.surface, required this.centre, required this.adresse, required this.parties});
+  _Batiment({
+    required this.geohash,
+    required this.surface,
+    required this.centre,
+    required this.centreM,
+    required this.adresse,
+    required this.parties,
+  });
   final String geohash;
   final double surface;
-  final Point<double> centre;
+
+  /// Centre en degrés (x = longitude, y = latitude) et en mètres (projection locale).
+  final Point<double> centre, centreM;
   final _Adresse? adresse;
+
+  /// Contours en degrés, sans point de fermeture.
   final List<List<Point<double>>> parties;
   late String id;
+}
+
+/// Une parcelle du cadastre, en mètres (projection locale).
+class _ParcelleBrute {
+  _ParcelleBrute(this.id, this.contours, this.contenance) {
+    for (final r in contours) {
+      for (final p in r) {
+        _xMin = min(_xMin, p.x);
+        _xMax = max(_xMax, p.x);
+        _yMin = min(_yMin, p.y);
+        _yMax = max(_yMax, p.y);
+      }
+    }
+  }
+
+  final String id;
+  final List<List<Point<double>>> contours;
+
+  /// Surface officielle en m² (« contenance » du cadastre).
+  final double? contenance;
+  double _xMin = double.infinity, _xMax = -double.infinity, _yMin = double.infinity, _yMax = -double.infinity;
+
+  double get surface => contours.fold(0, (s, r) => s + _surface(r).abs());
+
+  bool contient(Point<double> p) {
+    if (p.x < _xMin || p.x > _xMax || p.y < _yMin || p.y > _yMax) return false;
+    for (final r in contours) {
+      var dedans = false;
+      for (var i = 0, j = r.length - 1; i < r.length; j = i++) {
+        if ((r[i].y > p.y) != (r[j].y > p.y) &&
+            p.x < (r[j].x - r[i].x) * (p.y - r[i].y) / (r[j].y - r[i].y) + r[i].x) {
+          dedans = !dedans;
+        }
+      }
+      if (dedans) return true;
+    }
+    return false;
+  }
+}
+
+/// Simplifie un contour fermé et retire le point de fermeture.
+List<Point<double>> _simplifierFerme(List<Point<double>> r, double tol) {
+  var s = _simplifier(r, tol);
+  if (s.length < 4) s = r;
+  return s.first == s.last ? s.sublist(0, s.length - 1) : s;
+}
+
+/// « 12 Rue Apollo », « 12 Rue Apollo / 14 Rue Apollo », « … (+2) » :
+/// adresses d'une parcelle, triées par voie puis numéro.
+String _libelleParcelle(List<_Adresse> adresses) {
+  final triees = [...adresses]..sort((a, b) {
+      final c = a.voie.compareTo(b.voie);
+      return c != 0 ? c : a.numero.compareTo(b.numero);
+    });
+  final libelles = triees.map((a) => a.libelle).toSet().toList();
+  final debut = libelles.take(2).join(' / ');
+  return libelles.length > 2 ? '$debut (+${libelles.length - 2})' : debut;
 }
 
 /// « 12 bis Rue Apollo » ; ajoute le lieu-dit s'il apporte une info.

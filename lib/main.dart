@@ -5,7 +5,7 @@ import 'package:sembast_web/sembast_web.dart';
 
 import 'app.dart';
 import 'config.dart';
-import 'data/batiments_source.dart';
+import 'data/parcelles_source.dart';
 import 'data/tournee_repository.dart';
 import 'journal.dart';
 import 'platform/gps.dart';
@@ -35,7 +35,7 @@ Future<TourneeController> _demarrer() async {
   // Sans attendre : la réponse ne bloque pas le démarrage.
   demanderStockagePersistant();
 
-  final jeu = await BatimentsSource().charger();
+  final jeu = await ParcellesSource().charger();
   // IndexedDB du navigateur (sur l'iPhone : propre à l'app de l'écran d'accueil).
   // Base séparée pour l'environnement de test (voir config.dart).
   final repo = await TourneeRepository.ouvrir(databaseFactoryWeb, nom: nomBase);

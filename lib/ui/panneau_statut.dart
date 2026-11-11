@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 
-import '../models/batiment.dart';
+import '../models/parcelle.dart';
 import '../models/statut.dart';
 import '../state/tournee_controller.dart';
 
-/// Panneau du bas : adresse du bâtiment touché et gros boutons de statut (F2).
+/// Panneau du bas : adresse de la parcelle touchée et gros boutons de statut (F2).
 /// Choisir un statut l'enregistre et ferme le panneau.
 class PanneauStatut extends StatelessWidget {
-  const PanneauStatut({super.key, required this.controller, required this.batiment});
+  const PanneauStatut({super.key, required this.controller, required this.parcelle});
 
   final TourneeController controller;
-  final Batiment batiment;
+  final Parcelle parcelle;
 
   static const _statutsPrincipaux = [Statut.achete, Statut.aRepasser, Statut.refus, Statut.nonConcerne];
 
   void _choisir(Statut statut) {
     controller.selectionner(null);
-    controller.changerStatut(batiment.id, statut);
+    controller.changerStatut(parcelle.id, statut);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final actuel = controller.statutDe(batiment.id);
+    final actuel = controller.statutDe(parcelle.id);
 
     return Material(
       elevation: 12,
@@ -41,7 +41,7 @@ class PanneauStatut extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      batiment.adresse ?? 'Adresse inconnue',
+                      parcelle.adresse ?? 'Adresse inconnue',
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -53,7 +53,8 @@ class PanneauStatut extends StatelessWidget {
                 ],
               ),
               Text(
-                '${actuel.libelle} · bâtiment de ${batiment.surfaceM2.round()} m²',
+                '${actuel.libelle} · terrain de ${parcelle.surfaceM2.round()} m²'
+                '${parcelle.batiments.length > 1 ? ' · ${parcelle.batiments.length} bâtiments' : ''}',
                 style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),

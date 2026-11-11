@@ -1,7 +1,7 @@
 import 'package:sembast/sembast.dart';
 
 import '../models/campagne.dart';
-import '../models/etat_batiment.dart';
+import '../models/etat_parcelle.dart';
 import '../models/statut.dart';
 
 /// Lecture et écriture des statuts sur l'appareil.
@@ -10,9 +10,9 @@ import '../models/statut.dart';
 /// l'app, `newDatabaseFactoryMemory()` dans les tests.
 ///
 /// Stores (docs/ARCHITECTURE.md §4.4) :
-/// - `etats` : id du bâtiment → `{"s": statut, "t": date en ms}`.
+/// - `etats` : id de la parcelle → `{"s": statut, "t": date en ms}`.
 ///   Absence d'enregistrement = « non visité ».
-/// - `meta`  : `"campagne"` → `{"debut", "versionBatiments"}` ;
+/// - `meta`  : `"campagne"` → `{"debut", "versionCarte"}` ;
 ///   `"dernierExport"` → `{"t"}` ; `"sauvegardeAvantImport"` → `{"json"}`.
 class TourneeRepository {
   TourneeRepository._(this._db);
@@ -27,6 +27,7 @@ class TourneeRepository {
   static const _cleCampagne = 'campagne';
   static const _cleDernierExport = 'dernierExport';
   static const _cleSauvegarde = 'sauvegardeAvantImport';
+  static const _cleSauvegardeParcelles = 'sauvegardeAvantParcelles';
 
   final Database _db;
 
@@ -37,11 +38,11 @@ class TourneeRepository {
 
   /// Tous les états enregistrés. Les enregistrements illisibles sont ignorés
   /// (ils ne doivent pas empêcher l'app de démarrer).
-  Future<Map<String, EtatBatiment>> lireEtats() async {
+  Future<Map<String, EtatParcelle>> lireEtats() async {
     final enregistrements = await _etats.find(_db);
-    final etats = <String, EtatBatiment>{};
+    final etats = <String, EtatParcelle>{};
     for (final e in enregistrements) {
-      final etat = EtatBatiment.depuisStockage(e.key, e.value);
+      final etat = EtatParcelle.depuisStockage(e.key, e.value);
       if (etat != null) etats[e.key] = etat;
     }
     return etats;
@@ -49,8 +50,8 @@ class TourneeRepository {
 
   /// Enregistre un état. « Non visité » supprime l'enregistrement.
   /// Le `Future` ne se termine qu'une fois l'écriture faite dans la base.
-  Future<void> enregistrer(EtatBatiment etat) async {
-    final ref = _etats.record(etat.batimentId);
+  Future<void> enregistrer(EtatParcelle etat) async {
+    final ref = _etats.record(etat.parcelleId);
     if (etat.statut == Statut.nonVisite) {
       await ref.delete(_db);
     } else {
@@ -60,12 +61,12 @@ class TourneeRepository {
 
   /// Remplace tous les états d'un coup, en une seule transaction :
   /// soit tout est écrit, soit rien ne change (import, nouvelle campagne).
-  Future<void> remplacerTout(Iterable<EtatBatiment> etats) async {
+  Future<void> remplacerTout(Iterable<EtatParcelle> etats) async {
     await _db.transaction((txn) async {
       await _etats.delete(txn);
       for (final etat in etats) {
         if (etat.statut == Statut.nonVisite) continue;
-        await _etats.record(etat.batimentId).put(txn, etat.versStockage());
+        await _etats.record(etat.parcelleId).put(txn, etat.versStockage());
       }
     });
   }
@@ -102,6 +103,17 @@ class TourneeRepository {
 
   Future<void> effacerSauvegardeAvantImport() async {
     await _meta.record(_cleSauvegarde).delete(_db);
+  }
+
+  /// Copie (au format d'export) des statuts de l'ancien suivi par bâtiment,
+  /// faite juste avant leur report sur les parcelles. Gardée par sécurité.
+  Future<String?> lireSauvegardeAvantParcelles() async {
+    final json = (await _meta.record(_cleSauvegardeParcelles).get(_db))?['json'];
+    return json is String ? json : null;
+  }
+
+  Future<void> enregistrerSauvegardeAvantParcelles(String json) async {
+    await _meta.record(_cleSauvegardeParcelles).put(_db, {'json': json});
   }
 
   Future<void> fermer() => _db.close();

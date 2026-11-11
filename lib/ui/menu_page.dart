@@ -90,7 +90,7 @@ class MenuPage extends StatelessWidget {
             'Ils vont remplacer les ${controller.nbEtatsEnregistres} statut(s) actuels.',
         if (resultat.ignores > 0)
           '${resultat.ignores} maison(s) du fichier n\'existent pas sur la carte : elles seront ignorées.',
-        if (resultat.autreVersionBatiments) 'Attention : ce fichier a été fait avec une autre version de la carte.',
+        if (resultat.autreVersionCarte) 'Attention : ce fichier a été fait avec une autre version de la carte.',
         'Vous pourrez annuler cet import depuis ce menu.',
       ].join('\n\n'),
       action: 'Remplacer',

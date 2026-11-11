@@ -51,7 +51,7 @@ void main() {
       ));
       await tester.pump(); // fin du chargement des informations
 
-      expect(find.text('Saint-Héand, 3 bâtiments (version test-1)'), findsOneWidget);
+      expect(find.text('Saint-Héand, 3 parcelles (version test-1)'), findsOneWidget);
       expect(find.text('non (onglet du navigateur)'), findsOneWidget);
       expect(find.text('actif · app-test : 27'), findsOneWidget);
       // Le bas de la liste n'est construit qu'une fois visible.

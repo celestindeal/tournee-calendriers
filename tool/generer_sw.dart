@@ -79,6 +79,8 @@ void main(List<String> args) {
       .whereType<File>()
       .map((f) => (f, f.path.substring(build.path.length).replaceAll('\\', '/')))
       .where((e) => !_exclu(e.$2))
+      // Jamais les fichiers d'un autre environnement (ex. test/ en production).
+      .where((e) => !reglages.ignores.any((dossier) => e.$2.startsWith(dossier)))
       .toList()
     ..sort((a, b) => a.$2.compareTo(b.$2));
 

@@ -141,7 +141,30 @@ enum Statut {
 
 Les **noms** de l'enum (`achete`, `aRepasser`…) sont écrits dans la base et dans les exports. Ne jamais les renommer sans migration.
 
-### 4.2 Bâtiment (lecture seule, embarqué)
+### 4.1 bis Suivi par PARCELLE (depuis le 11/11/2026)
+
+> ⚠️ Cette section remplace le suivi par bâtiment décrit en §4.2 (gardé pour l'historique).
+
+- **Unité de suivi** : la **parcelle cadastrale** qui porte au moins un bâtiment gardé. On **touche un bâtiment**, et **tout le terrain** de la parcelle prend la couleur du statut, même pour les grandes parcelles (choix du 11/11/2026). Les garages et dépendances d'une parcelle n'ont plus à être marqués séparément.
+- **Saint-Héand** : 1 643 unités, soit 1 639 parcelles et 4 bâtiments hors parcelle (id `bat-<géohash>`). 1 159 parcelles ont un seul bâtiment ; 98 ont 2 adresses ou plus (plusieurs foyers, un seul statut).
+- **Données** : `assets/data/parcelles.json` (`"format": 2`), généré par `tool/preparer_donnees.dart`. Pour chaque parcelle :
+  - `id` : identifiant cadastral officiel (ex. `422340000B1353`) ;
+  - `a` : adresse(s), d'abord celles situées dans la parcelle ou liées par la BAN (`cad_parcelles`, très peu rempli à Saint-Héand), sinon la plus proche du bâtiment principal (≤ 60 m) ;
+  - `s` : contenance en m² ;
+  - `c` : centre du bâtiment principal ;
+  - `p` : contour du terrain (simplifié à 0,5 m) ;
+  - `b` : contours des bâtiments (ce qu'on touche) ;
+  - `anciens` : identifiants de ces bâtiments dans l'ancien suivi.
+- **Modèles** : `Parcelle`, `JeuParcelles` (avec `parcelleDeLAncienId`), `EtatParcelle`.
+- **Report des anciens statuts** (`lib/state/migration.dart`) :
+  - au démarrage, tout statut enregistré sous un ancien identifiant de bâtiment est reporté sur sa parcelle, une seule fois ;
+  - plusieurs statuts sur une parcelle → `EtatParcelle.lePlusParlant` : le plus récent parmi acheté / refus / à repasser, « non concerné » seulement s'il est seul ;
+  - une copie de l'ancien suivi est gardée dans IndexedDB (meta `sauvegardeAvantParcelles`) ;
+  - les **anciens fichiers d'export** sont reportés de la même façon à l'import ;
+  - les clés enregistrées (`'versionBatiments'`, `'s'`, `'t'`) **n'ont pas changé**.
+- **Dessin** : le terrain en dessous (contour gris fin si non visité, rempli à 35 % sinon), les bâtiments au-dessus (seuls à capter le toucher).
+
+### 4.2 Bâtiment (lecture seule, embarqué) — ancien suivi, remplacé par §4.1 bis
 
 ```dart
 class Batiment {

@@ -1,6 +1,6 @@
 /// La tournée en cours (une par an en général).
 class Campagne {
-  const Campagne({required this.debut, required this.versionBatiments});
+  const Campagne({required this.debut, required this.versionCarte});
 
   static Campagne? depuisStockage(Map<String, Object?> valeur) {
     final debut = valeur['debut'];
@@ -8,24 +8,24 @@ class Campagne {
     if (debut is! int || version is! String) return null;
     return Campagne(
       debut: DateTime.fromMillisecondsSinceEpoch(debut, isUtc: true),
-      versionBatiments: version,
+      versionCarte: version,
     );
   }
 
   final DateTime debut;
 
-  /// Version du fichier de bâtiments utilisé pendant cette campagne.
-  final String versionBatiments;
+  /// Version de la carte (fichier de parcelles) utilisée pendant cette campagne.
+  final String versionCarte;
 
   Map<String, Object> versStockage() => {
         'debut': debut.millisecondsSinceEpoch,
-        'versionBatiments': versionBatiments,
+        'versionBatiments': versionCarte,
       };
 
   @override
   bool operator ==(Object other) =>
-      other is Campagne && other.debut.isAtSameMomentAs(debut) && other.versionBatiments == versionBatiments;
+      other is Campagne && other.debut.isAtSameMomentAs(debut) && other.versionCarte == versionCarte;
 
   @override
-  int get hashCode => Object.hash(debut.millisecondsSinceEpoch, versionBatiments);
+  int get hashCode => Object.hash(debut.millisecondsSinceEpoch, versionCarte);
 }

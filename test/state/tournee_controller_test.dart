@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sembast/sembast_memory.dart';
+import 'package:tournee_calendriers/data/export_service.dart';
 import 'package:tournee_calendriers/data/tournee_repository.dart';
 import 'package:tournee_calendriers/models/campagne.dart';
+import 'package:tournee_calendriers/models/etat_parcelle.dart';
 import 'package:tournee_calendriers/models/statut.dart';
 import 'package:tournee_calendriers/state/tournee_controller.dart';
 
@@ -9,10 +12,62 @@ import '../outils.dart';
 void main() {
   final maintenant = DateTime.utc(2026, 11, 15, 9, 30);
 
+  group('passage du suivi par bâtiment au suivi par parcelle', () {
+    final avant = DateTime.utc(2026, 11, 11, 15);
+    EtatParcelle ancien(String id, Statut s, int minute) =>
+        EtatParcelle(parcelleId: id, statut: s, modifieLe: avant.add(Duration(minutes: minute)));
+
+    test('au démarrage, les maisons déjà cochées sont reportées sur leur parcelle', () async {
+      final fabrique = newDatabaseFactoryMemory();
+      // Base telle que laissée par l'ancienne version (identifiants de bâtiments).
+      final repo0 = await TourneeRepository.ouvrir(fabrique);
+      await repo0.remplacerTout([
+        ancien('vieux-a1', Statut.achete, 0), // maison de la parcelle « a »
+        ancien('vieux-a2', Statut.nonConcerne, 5), // son garage
+        ancien('vieux-b1', Statut.aRepasser, 10),
+      ]);
+      await repo0.fermer();
+
+      final repo = await TourneeRepository.ouvrir(fabrique);
+      final c = TourneeController(repo: repo, jeu: jeuDeTest(), horloge: () => maintenant);
+      await c.charger();
+
+      expect(c.statutsReportes, 3);
+      expect(c.statutDe('a'), Statut.achete);
+      expect(c.statutDe('b'), Statut.aRepasser);
+      expect(c.avancement.resume, '1 / 3 faits (33 %) – 1 à repasser');
+      // Enregistré par parcelle, anciens identifiants retirés.
+      expect((await repo.lireEtats()).keys, unorderedEquals(['a', 'b']));
+      // Copie de sécurité de l'ancien suivi.
+      expect(await repo.lireSauvegardeAvantParcelles(), contains('vieux-a2'));
+
+      // Au démarrage suivant, plus rien à reporter.
+      final c2 = TourneeController(repo: repo, jeu: jeuDeTest());
+      await c2.charger();
+      expect(c2.statutsReportes, 0);
+      expect(c2.statutDe('a'), Statut.achete);
+    });
+
+    test('un export fait avant le passage aux parcelles s\'importe sur les parcelles', () async {
+      final ancienExport = ExportService.exporter(
+        etats: [ancien('vieux-a1', Statut.refus, 0), ancien('vieux-b1', Statut.achete, 1), ancien('disparu', Statut.achete, 2)],
+        versionCarte: '2026-09-01-6c5672c1',
+        maintenant: avant,
+      );
+      final (c, _, _) = await controleurDeTest(horloge: () => maintenant);
+      final r = c.lireImport(ancienExport);
+      expect(r.etats.map((e) => e.parcelleId), unorderedEquals(['a', 'b']));
+      expect(r.ignores, 1);
+      await c.importer(r);
+      expect(c.statutDe('a'), Statut.refus);
+      expect(c.statutDe('b'), Statut.achete);
+    });
+  });
+
   test('au premier lancement : tout est non visité et la campagne est créée', () async {
     final (c, repo, _) = await controleurDeTest(horloge: () => maintenant);
     expect(c.avancement.resume, '0 / 3 faits (0 %) – 0 à repasser');
-    expect(c.campagne, Campagne(debut: maintenant, versionBatiments: 'test-1'));
+    expect(c.campagne, Campagne(debut: maintenant, versionCarte: 'test-1'));
     expect(await repo.lireCampagne(), c.campagne);
   });
 
@@ -157,7 +212,7 @@ void main() {
     final c = TourneeController(repo: repo2, jeu: jeuDeTest().copieSans('a'));
     await c.charger();
     expect(c.avancement.faits, 0);
-    expect(c.avancement.nbBatiments, 2);
+    expect(c.avancement.nbParcelles, 2);
     expect((await repo2.lireEtats()).keys, ['a']);
   });
 }

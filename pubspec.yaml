@@ -67,7 +67,7 @@ flutter:
 
   assets:
     # Généré par tool/preparer_donnees.dart
-    - assets/data/batiments.json
+    - assets/data/parcelles.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

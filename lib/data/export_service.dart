@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import '../models/campagne.dart';
-import '../models/etat_batiment.dart';
+import '../models/etat_parcelle.dart';
 import '../models/statut.dart';
 
 /// Résultat de la lecture d'un fichier d'export.
@@ -9,18 +9,18 @@ class ResultatImport {
   const ResultatImport({
     required this.etats,
     required this.ignores,
-    required this.autreVersionBatiments,
+    required this.autreVersionCarte,
     this.exporteLe,
   });
 
-  /// États à importer (bâtiments connus uniquement, sans « non visité »).
-  final List<EtatBatiment> etats;
+  /// États à importer (parcelles connues uniquement, sans « non visité »).
+  final List<EtatParcelle> etats;
 
-  /// Nombre d'états ignorés car le bâtiment n'existe pas dans l'app.
+  /// Nombre d'états ignorés car la maison n'existe pas sur la carte de l'app.
   final int ignores;
 
-  /// Le fichier a été fait avec un autre jeu de bâtiments.
-  final bool autreVersionBatiments;
+  /// Le fichier a été fait avec une autre version de la carte.
+  final bool autreVersionCarte;
 
   final DateTime? exporteLe;
 }
@@ -41,29 +41,36 @@ class ExportService {
   }
 
   static String exporter({
-    required Iterable<EtatBatiment> etats,
-    required String versionBatiments,
+    required Iterable<EtatParcelle> etats,
+    required String versionCarte,
     required DateTime maintenant,
     Campagne? campagne,
   }) {
     final liste = etats.where((e) => e.statut != Statut.nonVisite).toList()
-      ..sort((a, b) => a.batimentId.compareTo(b.batimentId));
+      ..sort((a, b) => a.parcelleId.compareTo(b.parcelleId));
     return const JsonEncoder.withIndent(' ').convert({
       'format': format,
       'versionFormat': versionFormat,
       'exporteLe': maintenant.toUtc().toIso8601String(),
-      'versionBatiments': versionBatiments,
+      'versionBatiments': versionCarte,
       if (campagne != null) 'campagne': {'debut': campagne.debut.toUtc().toIso8601String()},
       'etats': [
-        for (final e in liste) {'id': e.batimentId, 's': e.statut.name, 't': e.modifieLe.millisecondsSinceEpoch},
+        for (final e in liste) {'id': e.parcelleId, 's': e.statut.name, 't': e.modifieLe.millisecondsSinceEpoch},
       ],
     });
   }
 
-  /// Lit un export. [idsConnus] : bâtiments de l'app (les autres sont ignorés) ;
+  /// Lit un export. [idsConnus] : parcelles de l'app (les autres sont ignorées) ;
   /// `null` pour tout garder (restauration de la sauvegarde d'avant import).
+  /// [correspondances] : ancien identifiant de bâtiment → parcelle, pour lire un
+  /// export fait avant le passage aux parcelles (voir [EtatParcelle.lePlusParlant]).
   /// Lève une [FormatException] au message lisible si le fichier est refusé.
-  static ResultatImport lire(String texte, {required Set<String>? idsConnus, required String versionBatiments}) {
+  static ResultatImport lire(
+    String texte, {
+    required Set<String>? idsConnus,
+    required String versionCarte,
+    Map<String, String> correspondances = const {},
+  }) {
     final Object? json;
     try {
       json = jsonDecode(texte);
@@ -81,27 +88,32 @@ class ExportService {
     final liste = json['etats'];
     if (liste is! List) throw const FormatException(_abime);
 
-    final parId = <String, EtatBatiment>{};
+    final parId = <String, List<EtatParcelle>>{};
     var ignores = 0;
     for (final e in liste) {
       if (e is! Map) throw const FormatException(_abime);
       final id = e['id'];
       if (id is! String || id.isEmpty) throw const FormatException(_abime);
-      final etat = EtatBatiment.depuisStockage(id, {'s': e['s'], 't': e['t']});
+      final etat = EtatParcelle.depuisStockage(id, {'s': e['s'], 't': e['t']});
       if (etat == null) throw const FormatException(_abime);
-      if (idsConnus != null && !idsConnus.contains(id)) {
+      final cible = idsConnus == null
+          ? correspondances[id] ?? id // restauration : tout est gardé
+          : idsConnus.contains(id)
+              ? id
+              : correspondances[id];
+      if (cible == null) {
         ignores++;
         continue;
       }
       if (etat.statut == Statut.nonVisite) continue;
-      parId[id] = etat;
+      parId.putIfAbsent(cible, () => []).add(etat.pour(cible));
     }
 
     final exporteLe = json['exporteLe'];
     return ResultatImport(
-      etats: parId.values.toList(),
+      etats: [for (final l in parId.values) EtatParcelle.lePlusParlant(l)],
       ignores: ignores,
-      autreVersionBatiments: json['versionBatiments'] != versionBatiments,
+      autreVersionCarte: json['versionBatiments'] != versionCarte,
       exporteLe: exporteLe is String ? DateTime.tryParse(exporteLe) : null,
     );
   }

@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sembast/sembast_memory.dart';
 import 'package:tournee_calendriers/data/tournee_repository.dart';
 import 'package:tournee_calendriers/models/campagne.dart';
-import 'package:tournee_calendriers/models/etat_batiment.dart';
+import 'package:tournee_calendriers/models/etat_parcelle.dart';
 import 'package:tournee_calendriers/models/statut.dart';
 
 void main() {
@@ -10,7 +10,7 @@ void main() {
   late TourneeRepository repo;
   final date = DateTime.utc(2026, 11, 11, 10);
 
-  EtatBatiment etat(String id, Statut s) => EtatBatiment(batimentId: id, statut: s, modifieLe: date);
+  EtatParcelle etat(String id, Statut s) => EtatParcelle(parcelleId: id, statut: s, modifieLe: date);
 
   setUp(() async {
     // Une base en mémoire neuve pour chaque test (à la place d'IndexedDB).
@@ -89,7 +89,7 @@ void main() {
   });
 
   test('enregistre et relit la campagne', () async {
-    final c = Campagne(debut: date, versionBatiments: '2026-09-01-6c5672c1');
+    final c = Campagne(debut: date, versionCarte: '2026-09-01-6c5672c1');
     await repo.enregistrerCampagne(c);
     expect(await repo.lireCampagne(), c);
   });

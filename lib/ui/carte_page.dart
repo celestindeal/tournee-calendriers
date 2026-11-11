@@ -9,7 +9,7 @@ import '../state/position_controller.dart';
 import '../state/tournee_controller.dart';
 import 'barre_avancement.dart';
 import 'conseil_installation.dart';
-import 'couche_batiments.dart';
+import 'couche_parcelles.dart';
 import 'couche_position.dart';
 import 'menu_page.dart';
 import 'panneau_statut.dart';
@@ -140,7 +140,7 @@ class _CartePageState extends State<CartePage> {
                 keepBuffer: 1,
                 panBuffer: 0,
               ),
-              CoucheBatiments(controller: _controller),
+              CoucheParcelles(controller: _controller),
               CouchePosition(position: _position),
               RichAttributionWidget(
                 alignment: AttributionAlignment.bottomLeft,
@@ -211,7 +211,7 @@ class _CartePageState extends State<CartePage> {
                       : PanneauStatut(
                           key: ValueKey(selection.id),
                           controller: _controller,
-                          batiment: selection,
+                          parcelle: selection,
                         ),
                 );
               },

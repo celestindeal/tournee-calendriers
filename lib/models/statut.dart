@@ -1,6 +1,6 @@
 import 'dart:ui' show Color;
 
-/// Statut d'un bâtiment pendant la tournée.
+/// Statut d'une parcelle pendant la tournée.
 ///
 /// ⚠️ Le nom de chaque valeur (`achete`, `aRepasser`…) est écrit dans la base
 /// de l'iPhone et dans les exports : ne jamais le renommer sans migration.

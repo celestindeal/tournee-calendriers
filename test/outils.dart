@@ -1,23 +1,29 @@
 import 'package:latlong2/latlong.dart';
 import 'package:sembast/sembast_memory.dart';
 import 'package:tournee_calendriers/data/tournee_repository.dart';
-import 'package:tournee_calendriers/models/batiment.dart';
-import 'package:tournee_calendriers/models/jeu_batiments.dart';
+import 'package:tournee_calendriers/models/parcelle.dart';
+import 'package:tournee_calendriers/models/jeu_parcelles.dart';
 import 'package:tournee_calendriers/platform/plateforme.dart';
 import 'package:tournee_calendriers/state/tournee_controller.dart';
 
-/// Petit jeu de 3 bâtiments pour les tests.
-JeuBatiments jeuDeTest() {
-  Batiment b(String id, String? adresse, double lat) => Batiment(
+/// Petit jeu de 3 parcelles pour les tests.
+/// Anciens identifiants de bâtiments (suivi par bâtiment) : « a » regroupait
+/// la maison « vieux-a1 » et le garage « vieux-a2 », « b » le bâtiment « vieux-b1 ».
+JeuParcelles jeuDeTest() {
+  Parcelle p(String id, String? adresse, double lat, List<String> anciens) => Parcelle(
         id: id,
         adresse: adresse,
-        surfaceM2: 100,
+        surfaceM2: 944,
         centre: LatLng(lat, 4.38),
         contours: [
+          [LatLng(lat, 4.38), LatLng(lat + 0.0003, 4.38), LatLng(lat, 4.3803)],
+        ],
+        batiments: [
           [LatLng(lat, 4.38), LatLng(lat + 0.0001, 4.38), LatLng(lat, 4.3801)],
         ],
+        anciensIds: anciens,
       );
-  return JeuBatiments(
+  return JeuParcelles(
     version: 'test-1',
     codeInsee: '42234',
     nomCommune: 'Saint-Héand',
@@ -25,10 +31,10 @@ JeuBatiments jeuDeTest() {
     centre: const LatLng(45.53, 4.38),
     sudOuest: const LatLng(45.50, 4.34),
     nordEst: const LatLng(45.56, 4.42),
-    batiments: [
-      b('a', '7 Rue Jacques Prévert', 45.51),
-      b('b', '13 Rue de l’Avenir', 45.52),
-      b('c', null, 45.53),
+    parcelles: [
+      p('a', '7 Rue Jacques Prévert', 45.51, ['vieux-a1', 'vieux-a2']),
+      p('b', '13 Rue de l’Avenir', 45.52, ['vieux-b1']),
+      p('c', null, 45.53, const []),
     ],
   );
 }
@@ -61,9 +67,9 @@ class PlateformeDeTest implements Plateforme {
   Future<String> serviceWorker() async => 'actif · app-test : 27';
 }
 
-extension CopieJeu on JeuBatiments {
+extension CopieJeu on JeuParcelles {
   /// Le même jeu sans un bâtiment (simule un jeu de bâtiments régénéré).
-  JeuBatiments copieSans(String id) => JeuBatiments(
+  JeuParcelles copieSans(String id) => JeuParcelles(
         version: version,
         codeInsee: codeInsee,
         nomCommune: nomCommune,
@@ -71,6 +77,6 @@ extension CopieJeu on JeuBatiments {
         centre: centre,
         sudOuest: sudOuest,
         nordEst: nordEst,
-        batiments: [for (final b in batiments) if (b.id != id) b],
+        parcelles: [for (final b in parcelles) if (b.id != id) b],
       );
 }
