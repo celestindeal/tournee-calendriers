@@ -75,6 +75,30 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  idb_shim:
+    dependency: transitive
+    description:
+      name: idb_shim
+      sha256: "507d8f3154fa4e41165941c5aa8509c6bf155bb30f76ba25a00d1e7ba1dd64c9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.11.3"
+  intl:
+    dependency: transitive
+    description:
+      name: intl
+      sha256: "1ca20c894b1717686a2319b8548763d812bc0aabdac580420a44c5178c57a867"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.20.3"
+  latlong2:
+    dependency: "direct main"
+    description:
+      name: latlong2
+      sha256: "84b776b100a84a684a0aaa3fa4dc2c9b1931c658de533701ee4e09bfa991f8dc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.10.1"
   leak_tracker:
     dependency: transitive
     description:
@@ -139,6 +163,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
+  sembast:
+    dependency: "direct main"
+    description:
+      name: sembast
+      sha256: "4f71f8c95105918fa207065429c913f38d0fb05fec9f3a745bbf4c113f5d482b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.10.1"
+  sembast_web:
+    dependency: "direct main"
+    description:
+      name: sembast_web
+      sha256: "46e3a5512d0e53f5a01d15b0ba199260273de7b00d646d6c7012ef999a5201e2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.7"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -176,6 +216,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+  synchronized:
+    dependency: transitive
+    description:
+      name: synchronized
+      sha256: a77637ebe1460f3b48cac89a790d2eb634f0a8593cab0d3f340c6db174ba9b94
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.6.1+1"
   term_glyph:
     dependency: transitive
     description:
@@ -208,6 +256,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "15.4.0"
+  web:
+    dependency: transitive
+    description:
+      name: web
+      sha256: e119e82ac4795c7925103b7cf3768191f33941b99e7ccffbd6c645201d9f606b
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.2"
 sdks:
   dart: ">=3.13.7 <4.0.0"
   flutter: ">=3.18.0-18.0.pre.54"

@@ -441,7 +441,7 @@ dart run tool/generer_sw.dart
 ## 9. Ordre de réalisation proposé
 
 1. ✅ `tool/preparer_donnees.dart` + `assets/data/batiments.json` (Saint-Héand, 42234).
-2. Modèles + `TourneeRepository` + tests unitaires.
+2. ✅ Modèles + `TourneeRepository` + tests unitaires.
 3. Carte + polygones + panneau de statut + couleurs + barre d'avancement (F1–F5).
 4. Police embarquée, `flutter_bootstrap.js` personnalisé, `sw.js` + script, puis déploiement sur GitHub Pages et **premier test sur l'iPhone** (F7). On le fait tôt, car c'est le plus risqué.
 5. GPS (F6), export/import (F8), page Diagnostic.
