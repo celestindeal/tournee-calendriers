@@ -1,0 +1,54 @@
+# Publie l'app sur GitHub Pages à chaque push sur main
+# (https://celestindeal.github.io/tournee-calendriers/).
+# Rien n'est publié si l'analyse ou un test échoue.
+
+name: Déployer sur GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # bouton « Run workflow » dans l'onglet Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un seul déploiement à la fois ; on ne coupe pas un déploiement en cours.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.9 # même version que sur le PC
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+      # --no-web-resources-cdn : moteur de rendu servi par l'app (hors-ligne, ARCHITECTURE §7.2)
+      - run: flutter build web --release --no-web-resources-cdn --no-wasm-dry-run --base-href /tournee-calendriers/
+      - run: dart run tool/generer_sw.dart
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/web
+
+  deployer:
+    needs: construire
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - id: deploiement
+        uses: actions/deploy-pages@v5

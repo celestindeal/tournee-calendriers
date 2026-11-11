@@ -5,10 +5,13 @@ import 'ui/carte_page.dart';
 
 /// Application : écran de chargement, puis carte (ou message d'erreur).
 class TourneeApp extends StatefulWidget {
-  const TourneeApp({super.key, required this.demarrer});
+  const TourneeApp({super.key, required this.demarrer, this.conseilInstallation = false});
 
   /// Charge les bâtiments et ouvre la base. Fourni par main.dart.
   final Future<TourneeController> Function() demarrer;
+
+  /// Afficher le conseil « installez l'app sur l'écran d'accueil ».
+  final bool conseilInstallation;
 
   @override
   State<TourneeApp> createState() => _TourneeAppState();
@@ -25,11 +28,14 @@ class _TourneeAppState extends State<TourneeApp> {
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFFC62828), // rouge pompiers
         useMaterial3: true,
+        fontFamily: 'Roboto', // embarquée, voir pubspec.yaml
       ),
       home: FutureBuilder<TourneeController>(
         future: _demarrage,
         builder: (context, etat) {
-          if (etat.hasData) return CartePage(controller: etat.data!);
+          if (etat.hasData) {
+            return CartePage(controller: etat.data!, conseilInstallation: widget.conseilInstallation);
+          }
           if (etat.hasError) {
             return _EcranErreur(
               erreur: etat.error!,

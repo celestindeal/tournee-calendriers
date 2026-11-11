@@ -3,14 +3,19 @@ import 'package:flutter_map/flutter_map.dart';
 
 import '../state/tournee_controller.dart';
 import 'barre_avancement.dart';
+import 'conseil_installation.dart';
 import 'couche_batiments.dart';
 import 'panneau_statut.dart';
 
 /// Écran principal : carte, compteur en haut, panneau de statut en bas.
 class CartePage extends StatefulWidget {
-  const CartePage({super.key, required this.controller});
+  const CartePage({super.key, required this.controller, this.conseilInstallation = false});
 
   final TourneeController controller;
+
+  /// Vrai si l'app est ouverte dans un onglet du navigateur au lieu de
+  /// l'icône de l'écran d'accueil (ARCHITECTURE §7.5).
+  final bool conseilInstallation;
 
   @override
   State<CartePage> createState() => _CartePageState();
@@ -18,6 +23,7 @@ class CartePage extends StatefulWidget {
 
 class _CartePageState extends State<CartePage> {
   TourneeController get _controller => widget.controller;
+  late bool _conseilVisible = widget.conseilInstallation;
 
   @override
   void initState() {
@@ -86,7 +92,17 @@ class _CartePageState extends State<CartePage> {
             right: 0,
             child: SafeArea(
               minimum: const EdgeInsets.all(8),
-              child: BarreAvancement(controller: _controller),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  BarreAvancement(controller: _controller),
+                  if (_conseilVisible) ...[
+                    const SizedBox(height: 8),
+                    ConseilInstallation(onFermer: () => setState(() => _conseilVisible = false)),
+                  ],
+                ],
+              ),
             ),
           ),
           Positioned(

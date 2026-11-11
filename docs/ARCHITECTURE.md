@@ -104,8 +104,9 @@ tool/
 web/
   index.html                  Écran de chargement, balises iOS
   flutter_bootstrap.js        Personnalisé : n'enregistre PAS le service worker Flutter
-  sw.js.template              Modèle de notre service worker
   manifest.json               Nom, icônes, start_url, display: standalone
+tool/sw_modele.js             Modèle de notre service worker (hors de web/ pour ne pas être copié tel quel)
+.github/workflows/deployer.yml  Tests + build + publication sur GitHub Pages à chaque push sur main
 test/
   models/ data/ state/        Tests unitaires (statuts, compteurs, export/import, annulation)
 ```
@@ -341,7 +342,7 @@ Mise en œuvre :
      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
    }
    ```
-2. **`web/sw.js.template`** + **`tool/generer_sw.dart`**. Après `flutter build web`, le script :
+2. **`tool/sw_modele.js`** + **`tool/generer_sw.dart`**. Après `flutter build web`, le script :
    - liste les fichiers de `build/web` ;
    - calcule une empreinte (hash) globale ;
    - écrit `build/web/sw.js` avec la liste des fichiers à pré-cacher et un nom de cache versionné.
@@ -354,6 +355,12 @@ Mise en œuvre :
    - Tuiles OSM : cache séparé, rempli seulement avec les tuiles **vues**. Taille plafonnée (par ex. 1 500 tuiles), les plus anciennes sont supprimées.
    - `activate` : supprime les anciens caches de l'app, puis `clients.claim()`.
 4. **Le service worker ne touche jamais à IndexedDB.** Une mise à jour de l'app n'efface donc pas les statuts.
+
+**Mis en œuvre à l'étape 4 (11/11/2026) :**
+- Pré-cache : 27 fichiers, 11,7 Mo avant compression, dont 7,3 Mo pour `canvaskit.wasm`.
+- `flutter_bootstrap.js` force `canvasKitVariant: 'full'` : c'est la seule variante que Safari utilise. Les autres (`chromium`, `webparagraph`, `skwasm`, `wimp`) sont exclues du cache, et Chrome se comporte ainsi comme l'iPhone.
+- L'installation utilise `cache: 'no-cache'` : chaque fichier est revalidé, sans retéléchargement s'il est déjà en cache HTTP.
+- Vérifié sur le PC, serveur arrêté : l'app démarre, relit et enregistre les statuts, et affiche les tuiles déjà vues. Le passage à une nouvelle version supprime l'ancien cache et garde les tuiles.
 
 ### 7.2 Ressources chargées depuis les serveurs Google ⚠️
 
@@ -428,6 +435,8 @@ Sur iOS, tous les navigateurs utilisent WebKit, et Flutter désactive par défau
 
 ## 8. Build et déploiement
 
+En pratique, c'est **`.github/workflows/deployer.yml`** qui le fait à chaque `git push` sur `main` : analyse, tests, build, génération de `sw.js`, puis publication sur https://celestindeal.github.io/tournee-calendriers/. Rien n'est publié si un test échoue. Les commandes équivalentes :
+
 ```bash
 flutter build web --release --no-web-resources-cdn --base-href /tournee-calendriers/
 ```
@@ -435,10 +444,13 @@ flutter build web --release --no-web-resources-cdn --base-href /tournee-calendri
 dart run tool/generer_sw.dart
 ```
 
-Pour tester la version de production sur le PC (http://localhost:8080), sans `--base-href` :
+Pour tester la version de production sur le PC (http://localhost:8080), sans `--base-href`. Le hors-ligne s'y teste en arrêtant le serveur puis en rechargeant :
 
 ```bash
-flutter build web --release
+flutter build web --release --no-web-resources-cdn
+```
+```bash
+dart run tool/generer_sw.dart
 ```
 ```bash
 dart run tool/servir_web.dart
@@ -447,7 +459,6 @@ dart run tool/servir_web.dart
 Le mode debug (`flutter run -d web-server`) reste bloqué au démarrage sans l'extension Chrome « Dart Debug » : utiliser `flutter run -d chrome`, ou la version de production ci-dessus.
 
 - `--base-href /tournee-calendriers/` : GitHub Pages sert le site sous `https://celestindeal.github.io/tournee-calendriers/`. Dans `manifest.json`, `start_url` et `scope` doivent être relatifs (`"./"`).
-- Plus tard : une GitHub Action fera ces deux commandes et publiera `build/web` sur GitHub Pages à chaque `push` sur `main` (gratuit pour un repo public).
 
 ---
 
