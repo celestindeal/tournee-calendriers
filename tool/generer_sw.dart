@@ -119,14 +119,17 @@ void main(List<String> args) {
   print('${fichiers.length} fichiers pré-cachés, ${(taille / 1024 / 1024).toStringAsFixed(1)} Mo');
 }
 
-/// Environnement de test : nom « TEST » et couleur orange sous l'icône de
-/// l'iPhone, pour ne jamais confondre avec l'app de la tournée.
+/// Environnement de test : nom « TEST », couleur et icônes orange (dessinées
+/// dans web/icons/test/), pour ne jamais confondre avec l'app de la tournée.
 void _marquerCommeTest(Directory build) {
   final fManifest = File('${build.path}manifest.json');
   final manifest = jsonDecode(fManifest.readAsStringSync()) as Map<String, dynamic>
     ..['name'] = 'Tournée TEST'
     ..['short_name'] = 'TEST'
     ..['theme_color'] = '#EF6C00';
+  for (final icone in (manifest['icons'] as List).cast<Map<String, dynamic>>()) {
+    icone['src'] = (icone['src'] as String).replaceFirst('icons/', 'icons/test/');
+  }
   fManifest.writeAsStringSync(const JsonEncoder.withIndent('    ').convert(manifest));
 
   final fIndex = File('${build.path}index.html');
@@ -136,6 +139,10 @@ void _marquerCommeTest(Directory build) {
     '<meta name="apple-mobile-web-app-title" content="Tournée">':
         '<meta name="apple-mobile-web-app-title" content="TEST">',
     '<meta name="theme-color" content="#C62828">': '<meta name="theme-color" content="#EF6C00">',
+    '<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">':
+        '<link rel="apple-touch-icon" href="icons/test/apple-touch-icon.png">',
+    '<link rel="icon" type="image/png" href="icons/favicon.png"/>':
+        '<link rel="icon" type="image/png" href="icons/test/favicon.png"/>',
   };
   for (final MapEntry(key: avant, value: apres) in remplacements.entries) {
     if (!index.contains(avant)) _erreur('web/index.html : « $avant » introuvable.');
