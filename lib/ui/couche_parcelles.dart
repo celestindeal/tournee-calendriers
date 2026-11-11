@@ -97,7 +97,11 @@ class _CoucheParcellesState extends State<CoucheParcelles> {
 
   void _mettreAJourListes(bool detail) {
     if (_generationListes == _generation && _detailListes == detail) return;
-    final dessins = [for (final p in widget.controller.jeu.parcelles) _dessinDe(p)];
+    // Seules les parcelles gardées par le filtre d'affichage (F9) sont dessinées.
+    final dessins = [
+      for (final p in widget.controller.jeu.parcelles)
+        if (widget.controller.estVisible(p.id)) _dessinDe(p),
+    ];
     _terrains = [
       for (final d in dessins)
         if (detail || d.statut != Statut.nonVisite) ...d.terrain,

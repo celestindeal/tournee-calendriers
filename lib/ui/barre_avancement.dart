@@ -1,16 +1,30 @@
 import 'package:flutter/material.dart';
 
+import '../models/filtre.dart';
 import '../models/statut.dart';
 import '../state/tournee_controller.dart';
 
-/// Compteur « 132 / 480 faits (27 %) – 45 à repasser » et légende (F5).
+/// Compteur « 132 / 480 faits (27 %) – 45 à repasser », légende (F5) et,
+/// sur la carte, filtre d'affichage (F9).
 class BarreAvancement extends StatelessWidget {
-  const BarreAvancement({super.key, required this.controller, this.onMenu});
+  const BarreAvancement({
+    super.key,
+    required this.controller,
+    this.onMenu,
+    this.onListes,
+    this.afficherFiltre = false,
+  });
 
   final TourneeController controller;
 
   /// Ouvre le menu (bouton affiché seulement si fourni).
   final VoidCallback? onMenu;
+
+  /// Ouvre les listes de maisons (bouton affiché seulement si fourni).
+  final VoidCallback? onListes;
+
+  /// Affiche le choix « Toutes / Non visitées / À repasser ».
+  final bool afficherFiltre;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +47,14 @@ class BarreAvancement extends StatelessWidget {
                     Expanded(
                       child: Text(a.resume, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     ),
+                    if (onListes != null)
+                      IconButton(
+                        key: const Key('bouton-listes'),
+                        tooltip: 'Listes des maisons',
+                        icon: const Icon(Icons.format_list_bulleted),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: onListes,
+                      ),
                     if (onMenu != null)
                       IconButton(
                         key: const Key('bouton-menu'),
@@ -59,6 +81,27 @@ class BarreAvancement extends StatelessWidget {
                   runSpacing: 4,
                   children: [for (final s in Statut.values) _Legende(statut: s)],
                 ),
+                if (afficherFiltre) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<Filtre>(
+                      key: const Key('filtre'),
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
+                        textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                      ),
+                      segments: [
+                        for (final f in Filtre.values)
+                          ButtonSegment(value: f, label: Text(f.libelle, key: Key('filtre-${f.name}'))),
+                      ],
+                      selected: {controller.filtre},
+                      onSelectionChanged: (choix) => controller.changerFiltre(choix.first),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../config.dart';
+import '../models/filtre.dart';
 import '../models/jeu_parcelles.dart';
 import '../platform/plateforme.dart';
 import '../state/position_controller.dart';
@@ -14,6 +15,7 @@ import 'barre_avancement.dart';
 import 'conseil_installation.dart';
 import 'couche_parcelles.dart';
 import 'couche_position.dart';
+import 'listes_page.dart';
 import 'menu_page.dart';
 import 'panneau_statut.dart';
 
@@ -112,6 +114,21 @@ class _CartePageState extends State<CartePage> {
         ),
       );
 
+  /// Listes « à repasser » / « non visitées » ; la maison choisie est
+  /// centrée sur la carte, panneau ouvert.
+  Future<void> _ouvrirListes() async {
+    final id = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => ListesPage(controller: _controller)),
+    );
+    final parcelle = id == null ? null : _controller.parcelle(id);
+    if (parcelle == null || !mounted) return;
+    // La maison doit être visible : sinon on enlève le filtre.
+    if (!_controller.estVisible(id!)) _controller.changerFiltre(Filtre.toutes);
+    _carte.move(parcelle.centre, max(_carte.camera.zoom, 17));
+    _controller.selectionner(id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final jeu = _controller.jeu;
@@ -169,7 +186,12 @@ class _CartePageState extends State<CartePage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (!estProduction) const _BandeauTest(),
-                  BarreAvancement(controller: _controller, onMenu: _ouvrirMenu),
+                  BarreAvancement(
+                    controller: _controller,
+                    onMenu: _ouvrirMenu,
+                    onListes: _ouvrirListes,
+                    afficherFiltre: true,
+                  ),
                   if (_conseilVisible) ...[
                     const SizedBox(height: 8),
                     ConseilInstallation(onFermer: () => setState(() => _conseilVisible = false)),
