@@ -12,6 +12,7 @@ class BarreAvancement extends StatelessWidget {
     required this.controller,
     this.onMenu,
     this.onListes,
+    this.onRecherche,
     this.afficherFiltre = false,
   });
 
@@ -22,6 +23,9 @@ class BarreAvancement extends StatelessWidget {
 
   /// Ouvre les listes de maisons (bouton affiché seulement si fourni).
   final VoidCallback? onListes;
+
+  /// Ouvre la recherche d'adresse (bouton affiché seulement si fourni).
+  final VoidCallback? onRecherche;
 
   /// Affiche le choix « Toutes / Non visitées / À repasser ».
   final bool afficherFiltre;
@@ -47,6 +51,14 @@ class BarreAvancement extends StatelessWidget {
                     Expanded(
                       child: Text(a.resume, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                     ),
+                    if (onRecherche != null)
+                      IconButton(
+                        key: const Key('bouton-recherche'),
+                        tooltip: 'Rechercher une adresse',
+                        icon: const Icon(Icons.search),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: onRecherche,
+                      ),
                     if (onListes != null)
                       IconButton(
                         key: const Key('bouton-listes'),

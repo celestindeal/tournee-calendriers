@@ -18,6 +18,7 @@ import 'couche_position.dart';
 import 'listes_page.dart';
 import 'menu_page.dart';
 import 'panneau_statut.dart';
+import 'recherche_page.dart';
 
 /// Écran principal : carte, compteur en haut, panneau de statut en bas,
 /// bouton « Me localiser ».
@@ -116,11 +117,13 @@ class _CartePageState extends State<CartePage> {
 
   /// Listes « à repasser » / « non visitées » ; la maison choisie est
   /// centrée sur la carte, panneau ouvert.
-  Future<void> _ouvrirListes() async {
-    final id = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(builder: (_) => ListesPage(controller: _controller)),
-    );
+  Future<void> _ouvrirListes() => _allerALaMaisonChoisie(ListesPage(controller: _controller));
+
+  /// Recherche d'adresse ; même retour sur la carte que les listes.
+  Future<void> _ouvrirRecherche() => _allerALaMaisonChoisie(RecherchePage(controller: _controller));
+
+  Future<void> _allerALaMaisonChoisie(Widget page) async {
+    final id = await Navigator.push<String>(context, MaterialPageRoute(builder: (_) => page));
     final parcelle = id == null ? null : _controller.parcelle(id);
     if (parcelle == null || !mounted) return;
     // La maison doit être visible : sinon on enlève le filtre.
@@ -190,6 +193,7 @@ class _CartePageState extends State<CartePage> {
                     controller: _controller,
                     onMenu: _ouvrirMenu,
                     onListes: _ouvrirListes,
+                    onRecherche: _ouvrirRecherche,
                     afficherFiltre: true,
                   ),
                   if (_conseilVisible) ...[
