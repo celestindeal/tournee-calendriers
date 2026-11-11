@@ -59,3 +59,6 @@ Thumbs.db
 # Secrets
 .env
 .env.*
+
+# Données brutes téléchargées par tool/preparer_donnees.dart
+donnees_brutes/

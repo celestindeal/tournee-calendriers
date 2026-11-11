@@ -138,30 +138,41 @@ Les **noms** de l'enum (`achete`, `aRepasser`…) sont écrits dans la base et d
 
 ```dart
 class Batiment {
-  final String id;              // stable, voir ci-dessous
-  final List<LatLng> contour;   // polygone simplifié
-  final LatLng centre;          // pour l'adresse et le recentrage
-  final String? adresse;        // « 12 rue des Lilas », null si aucune adresse proche
+  final String id;                    // stable, voir ci-dessous
+  final List<List<LatLng>> contours;  // une ou plusieurs parties, déjà simplifiées
+  final LatLng centre;                // pour l'adresse et le recentrage
+  final String? adresse;              // « 12 Rue Apollo », null si aucune adresse à moins de 60 m
   final double surfaceM2;
 }
 ```
 
-Format de `assets/data/batiments.json`, compact pour rester léger :
+Le fichier `assets/data/batiments.json` est **généré** par `dart run tool/preparer_donnees.dart` (voir l'en-tête du script pour les options). Il est versionné dans git. Format compact :
 
 ```json
 {
-  "version": "2026-11-11-a1b2c3",
-  "commune": "XXXXX",
+  "version": "2026-09-01-6c5672c1",
+  "commune": { "insee": "42234", "nom": "Saint-Héand" },
+  "sources": { "cadastre": "…millésime 2026-09-01…", "adresses": "…BAN du 2026-11-11…" },
+  "parametres": { "types": ["01", "03"], "surfaceMinM2": 20, "distanceAdresseMaxM": 60 },
+  "centre": [45.533883, 4.38225],
+  "bbox": [[45.505327, 4.343518], [45.562438, 4.420981]],
   "batiments": [
-    { "id": "u0m5k3h2q", "a": "12 rue des Lilas", "s": 142.5,
-      "p": [[45.12345, 4.12345], [45.12350, 4.12360], ...] }
+    { "id": "u054gtt5m", "a": "7 Rue Jacques Prévert", "s": 136.6,
+      "c": [45.514197, 4.379658],
+      "p": [ [[45.51418, 4.37960], [45.51425, 4.37971], …] ] }
   ]
 }
 ```
 
-- **`id` stable** : un géohash du centre du bâtiment (précision 9 ≈ 5 m), avec un suffixe en cas de doublon. Si on régénère le fichier l'année suivante, les mêmes maisons gardent le même id, et un ancien export reste importable. Les bâtiments du cadastre Etalab n'ont pas d'identifiant fiable : à vérifier sur le fichier réel de la commune.
-- Coordonnées arrondies à 5 décimales (≈ 1 m). Pour un village de 500 à 2 000 bâtiments, le fichier fait quelques centaines de Ko.
-- `version` permet de détecter, à l'import, un export fait avec un autre jeu de bâtiments.
+- **`id` stable** : le cadastre Etalab ne fournit **aucun identifiant** de bâtiment (vérifié). On utilise donc un géohash du centre du bâtiment (précision 9 ≈ 5 m), avec un suffixe `-2`, `-3`… en cas de doublon (3 cas à Saint-Héand). Si on régénère le fichier l'année suivante, les mêmes maisons gardent le même id, et un ancien export reste importable.
+- `p` : liste de contours (un par partie du bâtiment), sans point de fermeture. Les cours intérieures (trous) sont ignorées : flutter_map les gère mal sur le web.
+- Coordonnées arrondies à 6 décimales (≈ 0,1 m). Simplification Douglas-Peucker à 0,3 m.
+- `version` = millésime du cadastre + empreinte du contenu. Le script est reproductible (même entrée → même version). Elle permet de détecter, à l'import, un export fait avec un autre jeu de bâtiments.
+
+**Saint-Héand (42234), génération du 11/11/2026** :
+- 4 423 bâtiments au cadastre, 2 457 gardés. Sont écartés les 1 364 de type 02 (bâti léger : abris, cabanons) et les 602 de moins de 20 m².
+- 1 762 adresses BAN ; 95 % des bâtiments gardés ont une adresse à moins de 60 m. Dans les hameaux, une même adresse peut couvrir jusqu'à 11 bâtiments (ferme et dépendances) : ces dépendances seront marquées « non concerné ».
+- Le fichier fait 519 Ko, 125 Ko une fois compressé pour le transfert. C'est bien plus que les ~480 maisons évoquées dans le cahier des charges, mais flutter_map le supporte sans problème.
 
 ### 4.3 État d'un bâtiment (écrit sur l'iPhone)
 
@@ -207,14 +218,14 @@ Nom du fichier : `tournee-2026-11-11-1832.json`
 - on demande confirmation (« remplacer les 132 statuts actuels ? ») ;
 - **avant d'écraser, on refait un export automatique**, pour qu'une fausse manipulation soit toujours rattrapable.
 
-### 4.6 Compteurs (F5) – règle à valider
+### 4.6 Compteurs (F5) – règle validée le 11/11/2026
 
 - **Total** = bâtiments affichés − « non concerné »
 - **Faits** = acheté + refus
 - **À repasser** = à repasser
 - Exemple : « 132 / 480 faits (27 %) – 45 à repasser »
 
-> À confirmer avec l'amicale : est-ce qu'un « refus » compte comme « fait » ? Le cahier des charges le suggère (« Fait – refus »).
+> Décision du 11/11/2026 : un « refus » compte comme « fait ».
 
 ---
 
@@ -429,7 +440,7 @@ dart run tool/generer_sw.dart
 
 ## 9. Ordre de réalisation proposé
 
-1. `tool/preparer_donnees.dart` + `assets/data/batiments.json` (il faut le **nom ou code INSEE de la commune**).
+1. ✅ `tool/preparer_donnees.dart` + `assets/data/batiments.json` (Saint-Héand, 42234).
 2. Modèles + `TourneeRepository` + tests unitaires.
 3. Carte + polygones + panneau de statut + couleurs + barre d'avancement (F1–F5).
 4. Police embarquée, `flutter_bootstrap.js` personnalisé, `sw.js` + script, puis déploiement sur GitHub Pages et **premier test sur l'iPhone** (F7). On le fait tôt, car c'est le plus risqué.
@@ -442,10 +453,7 @@ dart run tool/generer_sw.dart
 
 | Sujet | Décision à prendre / à vérifier |
 | --- | --- |
-| Commune | Nom ou code INSEE, pour télécharger le cadastre et la BAN |
-| « Refus » compte comme « fait » ? | Proposé : oui (§4.6) |
-| Identifiants des bâtiments Etalab | Vérifier les champs réels du GeoJSON (type de bâti, présence d'un id) |
-| Seuil de surface | 20 m² par défaut, à ajuster après avoir vu la carte |
+| Seuil de surface, types gardés | 20 m², types 01 et 03 : à ajuster après avoir vu la carte (relancer le script avec `--surface-min`, `--types`) |
 | Marges de l'iPhone, export dans une app installée | À tester sur l'appareil |
 
 ## Sources
