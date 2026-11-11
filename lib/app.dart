@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 
+import 'journal.dart';
+import 'platform/plateforme.dart';
+import 'state/position_controller.dart';
 import 'state/tournee_controller.dart';
 import 'ui/carte_page.dart';
 
 /// Application : écran de chargement, puis carte (ou message d'erreur).
 class TourneeApp extends StatefulWidget {
-  const TourneeApp({super.key, required this.demarrer, this.conseilInstallation = false});
+  const TourneeApp({
+    super.key,
+    required this.demarrer,
+    required this.plateforme,
+    required this.position,
+  });
 
   /// Charge les bâtiments et ouvre la base. Fourni par main.dart.
   final Future<TourneeController> Function() demarrer;
 
-  /// Afficher le conseil « installez l'app sur l'écran d'accueil ».
-  final bool conseilInstallation;
+  final Plateforme plateforme;
+  final PositionController position;
 
   @override
   State<TourneeApp> createState() => _TourneeAppState();
@@ -34,9 +42,10 @@ class _TourneeAppState extends State<TourneeApp> {
         future: _demarrage,
         builder: (context, etat) {
           if (etat.hasData) {
-            return CartePage(controller: etat.data!, conseilInstallation: widget.conseilInstallation);
+            return CartePage(controller: etat.data!, position: widget.position, plateforme: widget.plateforme);
           }
           if (etat.hasError) {
+            Journal.instance.ajouter('Démarrage : ${etat.error}', etat.stackTrace);
             return _EcranErreur(
               erreur: etat.error!,
               reessayer: () => setState(() => _demarrage = widget.demarrer()),

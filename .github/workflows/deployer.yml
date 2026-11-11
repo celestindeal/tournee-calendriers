@@ -36,7 +36,8 @@ jobs:
       - run: flutter test
 
       # --no-web-resources-cdn : moteur de rendu servi par l'app (hors-ligne, ARCHITECTURE §7.2)
-      - run: flutter build web --release --no-web-resources-cdn --no-wasm-dry-run --base-href /tournee-calendriers/
+      # VERSION_APP : identifiant court du commit, affiché dans la page Diagnostic
+      - run: flutter build web --release --no-web-resources-cdn --no-wasm-dry-run --base-href /tournee-calendriers/ --dart-define=VERSION_APP=${GITHUB_SHA::7}
       - run: dart run tool/generer_sw.dart
 
       - uses: actions/upload-pages-artifact@v5

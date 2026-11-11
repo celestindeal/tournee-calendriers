@@ -12,7 +12,8 @@ import '../models/statut.dart';
 /// Stores (docs/ARCHITECTURE.md §4.4) :
 /// - `etats` : id du bâtiment → `{"s": statut, "t": date en ms}`.
 ///   Absence d'enregistrement = « non visité ».
-/// - `meta`  : `"campagne"` → `{"debut", "versionBatiments"}`.
+/// - `meta`  : `"campagne"` → `{"debut", "versionBatiments"}` ;
+///   `"dernierExport"` → `{"t"}` ; `"sauvegardeAvantImport"` → `{"json"}`.
 class TourneeRepository {
   TourneeRepository._(this._db);
 
@@ -24,6 +25,8 @@ class TourneeRepository {
   static final _etats = stringMapStoreFactory.store('etats');
   static final _meta = stringMapStoreFactory.store('meta');
   static const _cleCampagne = 'campagne';
+  static const _cleDernierExport = 'dernierExport';
+  static const _cleSauvegarde = 'sauvegardeAvantImport';
 
   final Database _db;
 
@@ -74,6 +77,31 @@ class TourneeRepository {
 
   Future<void> enregistrerCampagne(Campagne campagne) async {
     await _meta.record(_cleCampagne).put(_db, campagne.versStockage());
+  }
+
+  /// Date du dernier export réussi (pour « Dernier export : il y a 3 jours »).
+  Future<DateTime?> lireDernierExport() async {
+    final t = (await _meta.record(_cleDernierExport).get(_db))?['t'];
+    return t is int ? DateTime.fromMillisecondsSinceEpoch(t, isUtc: true) : null;
+  }
+
+  Future<void> enregistrerDernierExport(DateTime quand) async {
+    await _meta.record(_cleDernierExport).put(_db, {'t': quand.millisecondsSinceEpoch});
+  }
+
+  /// Copie de la tournée (au format d'export) faite juste avant un import,
+  /// pour pouvoir l'annuler.
+  Future<String?> lireSauvegardeAvantImport() async {
+    final json = (await _meta.record(_cleSauvegarde).get(_db))?['json'];
+    return json is String ? json : null;
+  }
+
+  Future<void> enregistrerSauvegardeAvantImport(String json) async {
+    await _meta.record(_cleSauvegarde).put(_db, {'json': json});
+  }
+
+  Future<void> effacerSauvegardeAvantImport() async {
+    await _meta.record(_cleSauvegarde).delete(_db);
   }
 
   Future<void> fermer() => _db.close();

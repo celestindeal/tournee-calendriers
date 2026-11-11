@@ -79,6 +79,7 @@ lib/
     batiment.dart             Batiment (id, contour, centre, adresse, surface)
     etat_batiment.dart        EtatBatiment (id bâtiment, statut, date)
     avancement.dart           Compteurs pour la barre F5
+  journal.dart                Dernières erreurs (page Diagnostic)
   data/
     batiments_source.dart     Lit assets/data/batiments.json
     tournee_repository.dart   Lecture/écriture des états dans sembast (IndexedDB)
@@ -87,14 +88,19 @@ lib/
     tournee_controller.dart   États, sélection, filtre, annulation, compteurs
     position_controller.dart  Flux GPS (démarré à la demande)
   platform/
-    stockage_persistant.dart  navigator.storage.persist() via package:web
+    plateforme.dart           Interface « ce que dit le navigateur » (simulée dans les tests)
+    navigateur.dart           Implémentation web (package:web) : installée ?, persist(), service worker
+    gps.dart                  Flux de positions geolocator
   ui/
     carte_page.dart           Écran principal (carte + barre + bouton GPS)
     couche_batiments.dart     PolygonLayer coloré + détection du toucher
     couche_position.dart      Point bleu
     panneau_statut.dart       Panneau du bas : adresse + 5 gros boutons (F2)
     barre_avancement.dart     « 132 / 480 faits (27 %) – 45 à repasser » + légende (F5)
-    menu_page.dart            Export, import, filtres, nouvelle campagne
+    menu_page.dart            Export, import, annuler l'import, diagnostic, sources
+    diagnostic_page.dart      État de l'app et erreurs récentes, bouton « Copier »
+    conseil_installation.dart Encadré « installez l'app » quand elle est ouverte dans un onglet
+    formats.dart              Dates lisibles (« hier à 18h32 »)
 assets/
   data/batiments.json         Généré par tool/preparer_donnees.dart (versionné dans git)
   fonts/                      Police embarquée (indispensable hors-ligne, voir §7.3)
@@ -467,8 +473,8 @@ Le mode debug (`flutter run -d web-server`) reste bloqué au démarrage sans l'e
 1. ✅ `tool/preparer_donnees.dart` + `assets/data/batiments.json` (Saint-Héand, 42234).
 2. ✅ Modèles + `TourneeRepository` + tests unitaires.
 3. ✅ Carte + polygones + panneau de statut + couleurs + barre d'avancement (F1–F5).
-4. Police embarquée, `flutter_bootstrap.js` personnalisé, `sw.js` + script, puis déploiement sur GitHub Pages et **premier test sur l'iPhone** (F7). On le fait tôt, car c'est le plus risqué.
-5. GPS (F6), export/import (F8), page Diagnostic.
+4. ✅ Police embarquée, `flutter_bootstrap.js` personnalisé, `sw.js` + script, puis déploiement sur GitHub Pages et **premier test sur l'iPhone** (F7). Test réussi le 11/11/2026 : installation depuis Safari, statut changé, puis réouverture et changement de statut en mode Avion.
+5. ✅ GPS (F6), export/import (F8), page Diagnostic. Avant chaque import, une copie de la tournée est gardée dans IndexedDB (meta `sauvegardeAvantImport`), et le menu permet d'« Annuler le dernier import ». Le navigateur interdit d'ouvrir la feuille de partage sans toucher l'écran : l'« export automatique » du §4.5 n'est donc pas possible sur le web. La version de l'app (identifiant du commit) est passée au build par `--dart-define=VERSION_APP`.
 6. Filtres, annulation, nouvelle campagne (F9–F11).
 
 ---

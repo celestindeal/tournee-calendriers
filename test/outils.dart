@@ -3,6 +3,7 @@ import 'package:sembast/sembast_memory.dart';
 import 'package:tournee_calendriers/data/tournee_repository.dart';
 import 'package:tournee_calendriers/models/batiment.dart';
 import 'package:tournee_calendriers/models/jeu_batiments.dart';
+import 'package:tournee_calendriers/platform/plateforme.dart';
 import 'package:tournee_calendriers/state/tournee_controller.dart';
 
 /// Petit jeu de 3 bâtiments pour les tests.
@@ -41,6 +42,23 @@ Future<(TourneeController, TourneeRepository, DatabaseFactory)> controleurDeTest
   final controller = TourneeController(repo: repo, jeu: jeuDeTest(), horloge: horloge);
   await controller.charger();
   return (controller, repo, fabrique);
+}
+
+/// Navigateur simulé pour les tests (pages Menu et Diagnostic).
+class PlateformeDeTest implements Plateforme {
+  PlateformeDeTest({this.estAppInstallee = true});
+
+  @override
+  final bool estAppInstallee;
+
+  @override
+  String get navigateur => 'Navigateur de test';
+
+  @override
+  Future<bool> stockagePersistant() async => true;
+
+  @override
+  Future<String> serviceWorker() async => 'actif · app-test : 27';
 }
 
 extension CopieJeu on JeuBatiments {

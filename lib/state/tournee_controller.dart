@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../data/export_service.dart';
 import '../data/tournee_repository.dart';
+import '../journal.dart';
 import '../models/avancement.dart';
 import '../models/batiment.dart';
 import '../models/campagne.dart';
@@ -35,8 +37,22 @@ class TourneeController extends ChangeNotifier {
   String? _selectionId;
   Campagne? _campagne;
   String? _derniereErreur;
+  DateTime? _dernierExport;
+  bool _peutAnnulerImport = false;
 
   Campagne? get campagne => _campagne;
+
+  /// Date du dernier export réussi, ou `null` si jamais exporté.
+  DateTime? get dernierExport => _dernierExport;
+
+  /// Une copie d'avant le dernier import existe : on peut l'annuler.
+  bool get peutAnnulerImport => _peutAnnulerImport;
+
+  /// Nombre de statuts enregistrés (y compris ceux d'un ancien jeu de bâtiments).
+  int get nbEtatsEnregistres => _etats.length;
+
+  /// Statuts enregistrés pour des bâtiments absents du jeu actuel.
+  int get nbEtatsInconnus => _etats.keys.where((id) => !_parId.containsKey(id)).length;
 
   /// Message à afficher une fois (puis appeler [effacerErreur]).
   String? get derniereErreur => _derniereErreur;
@@ -52,7 +68,60 @@ class TourneeController extends ChangeNotifier {
       _campagne = Campagne(debut: _horloge().toUtc(), versionBatiments: jeu.version);
       await _repo.enregistrerCampagne(_campagne!);
     }
+    _dernierExport = await _repo.lireDernierExport();
+    _peutAnnulerImport = await _repo.lireSauvegardeAvantImport() != null;
     notifyListeners();
+  }
+
+  // --- Export / import (F8) ---------------------------------------------
+
+  /// Contenu du fichier d'export. Synchrone : l'interface peut ouvrir la
+  /// feuille de partage dans la foulée du toucher (ARCHITECTURE §7.7).
+  String contenuExport(DateTime maintenant) => ExportService.exporter(
+        etats: _etats.values,
+        versionBatiments: jeu.version,
+        campagne: _campagne,
+        maintenant: maintenant,
+      );
+
+  Future<void> noterExport(DateTime quand) async {
+    _dernierExport = quand.toUtc();
+    notifyListeners();
+    await _repo.enregistrerDernierExport(_dernierExport!);
+  }
+
+  /// Lit un fichier d'export sans rien modifier.
+  /// Lève une [FormatException] au message lisible si le fichier est refusé.
+  ResultatImport lireImport(String texte) =>
+      ExportService.lire(texte, idsConnus: _parId.keys.toSet(), versionBatiments: jeu.version);
+
+  /// Remplace tous les statuts par ceux du fichier. Une copie de la tournée
+  /// actuelle est gardée d'abord, pour pouvoir annuler ([annulerDernierImport]).
+  Future<void> importer(ResultatImport resultat) async {
+    await _repo.enregistrerSauvegardeAvantImport(contenuExport(_horloge()));
+    await _repo.remplacerTout(resultat.etats);
+    _remplacerEnMemoire(resultat.etats);
+    _peutAnnulerImport = true;
+    notifyListeners();
+  }
+
+  /// Remet la tournée telle qu'elle était juste avant le dernier import.
+  Future<void> annulerDernierImport() async {
+    final sauvegarde = await _repo.lireSauvegardeAvantImport();
+    if (sauvegarde == null) return;
+    final etats = ExportService.lire(sauvegarde, idsConnus: null, versionBatiments: jeu.version).etats;
+    await _repo.remplacerTout(etats);
+    await _repo.effacerSauvegardeAvantImport();
+    _remplacerEnMemoire(etats);
+    _peutAnnulerImport = false;
+    notifyListeners();
+  }
+
+  void _remplacerEnMemoire(Iterable<EtatBatiment> etats) {
+    _selectionId = null;
+    _etats
+      ..clear()
+      ..addAll({for (final e in etats) e.batimentId: e});
   }
 
   Statut statutDe(String batimentId) => _etats[batimentId]?.statut ?? Statut.nonVisite;
@@ -95,7 +164,7 @@ class TourneeController extends ChangeNotifier {
         _appliquer(batimentId, ancien);
       }
       _derniereErreur = 'Le statut n\'a pas pu être enregistré. Réessayez.';
-      debugPrint('Échec d\'enregistrement de $batimentId : $e');
+      Journal.instance.ajouter('Échec d\'enregistrement de $batimentId : $e');
       notifyListeners();
       return false;
     }

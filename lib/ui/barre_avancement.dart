@@ -5,9 +5,12 @@ import '../state/tournee_controller.dart';
 
 /// Compteur « 132 / 480 faits (27 %) – 45 à repasser » et légende (F5).
 class BarreAvancement extends StatelessWidget {
-  const BarreAvancement({super.key, required this.controller});
+  const BarreAvancement({super.key, required this.controller, this.onMenu});
 
   final TourneeController controller;
+
+  /// Ouvre le menu (bouton affiché seulement si fourni).
+  final VoidCallback? onMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +28,21 @@ class BarreAvancement extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(a.resume, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(a.resume, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                    ),
+                    if (onMenu != null)
+                      IconButton(
+                        key: const Key('bouton-menu'),
+                        tooltip: 'Menu',
+                        icon: const Icon(Icons.menu),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: onMenu,
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 6),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),

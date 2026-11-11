@@ -76,6 +76,18 @@ void main() {
     expect((await repo.lireEtats()).keys, ['a']);
   });
 
+  test('dernier export et sauvegarde d\'avant import', () async {
+    expect(await repo.lireDernierExport(), isNull);
+    await repo.enregistrerDernierExport(date);
+    expect(await repo.lireDernierExport(), date);
+
+    expect(await repo.lireSauvegardeAvantImport(), isNull);
+    await repo.enregistrerSauvegardeAvantImport('{"x": 1}');
+    expect(await repo.lireSauvegardeAvantImport(), '{"x": 1}');
+    await repo.effacerSauvegardeAvantImport();
+    expect(await repo.lireSauvegardeAvantImport(), isNull);
+  });
+
   test('enregistre et relit la campagne', () async {
     final c = Campagne(debut: date, versionBatiments: '2026-09-01-6c5672c1');
     await repo.enregistrerCampagne(c);

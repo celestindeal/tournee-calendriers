@@ -90,6 +90,63 @@ void main() {
     expect(c.selection, isNull);
   });
 
+  group('export / import (F8)', () {
+    test('export puis import dans une autre app : mêmes statuts', () async {
+      final (source, _, _) = await controleurDeTest(horloge: () => maintenant);
+      await source.changerStatut('a', Statut.achete);
+      await source.changerStatut('b', Statut.aRepasser);
+      final fichier = source.contenuExport(maintenant);
+
+      final (cible, repoCible, _) = await controleurDeTest(horloge: () => maintenant);
+      await cible.changerStatut('c', Statut.refus);
+      await cible.importer(cible.lireImport(fichier));
+
+      expect(cible.statutDe('a'), Statut.achete);
+      expect(cible.statutDe('b'), Statut.aRepasser);
+      expect(cible.statutDe('c'), Statut.nonVisite);
+      expect((await repoCible.lireEtats()).keys, unorderedEquals(['a', 'b']));
+      expect(cible.peutAnnulerImport, isTrue);
+    });
+
+    test('annuler l\'import remet exactement la tournée d\'avant', () async {
+      final (c, repo, _) = await controleurDeTest(horloge: () => maintenant);
+      await c.changerStatut('c', Statut.refus);
+      final (autre, _, _) = await controleurDeTest(horloge: () => maintenant);
+      await autre.changerStatut('a', Statut.achete);
+
+      await c.importer(c.lireImport(autre.contenuExport(maintenant)));
+      expect(c.statutDe('c'), Statut.nonVisite);
+
+      await c.annulerDernierImport();
+      expect(c.statutDe('c'), Statut.refus);
+      expect(c.statutDe('a'), Statut.nonVisite);
+      expect(c.peutAnnulerImport, isFalse);
+      expect(await repo.lireSauvegardeAvantImport(), isNull);
+    });
+
+    test('la possibilité d\'annuler survit au redémarrage', () async {
+      final (c, repo, fabrique) = await controleurDeTest(horloge: () => maintenant);
+      await c.importer(c.lireImport(c.contenuExport(maintenant)));
+      await repo.fermer();
+
+      final c2 = TourneeController(repo: await TourneeRepository.ouvrir(fabrique), jeu: jeuDeTest());
+      await c2.charger();
+      expect(c2.peutAnnulerImport, isTrue);
+    });
+
+    test('la date du dernier export est retenue', () async {
+      final (c, repo, fabrique) = await controleurDeTest();
+      expect(c.dernierExport, isNull);
+      await c.noterExport(maintenant);
+      expect(c.dernierExport, maintenant);
+      await repo.fermer();
+
+      final c2 = TourneeController(repo: await TourneeRepository.ouvrir(fabrique), jeu: jeuDeTest());
+      await c2.charger();
+      expect(c2.dernierExport, maintenant);
+    });
+  });
+
   test('un état d\'un ancien jeu de bâtiments est gardé mais pas compté', () async {
     final (c0, repo, fabrique) = await controleurDeTest();
     await c0.changerStatut('a', Statut.achete);

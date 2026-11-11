@@ -1,21 +1,31 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
+import '../platform/plateforme.dart';
+import '../state/position_controller.dart';
 import '../state/tournee_controller.dart';
 import 'barre_avancement.dart';
 import 'conseil_installation.dart';
 import 'couche_batiments.dart';
+import 'couche_position.dart';
+import 'menu_page.dart';
 import 'panneau_statut.dart';
 
-/// Écran principal : carte, compteur en haut, panneau de statut en bas.
+/// Écran principal : carte, compteur en haut, panneau de statut en bas,
+/// bouton « Me localiser ».
 class CartePage extends StatefulWidget {
-  const CartePage({super.key, required this.controller, this.conseilInstallation = false});
+  const CartePage({
+    super.key,
+    required this.controller,
+    required this.position,
+    required this.plateforme,
+  });
 
   final TourneeController controller;
-
-  /// Vrai si l'app est ouverte dans un onglet du navigateur au lieu de
-  /// l'icône de l'écran d'accueil (ARCHITECTURE §7.5).
-  final bool conseilInstallation;
+  final PositionController position;
+  final Plateforme plateforme;
 
   @override
   State<CartePage> createState() => _CartePageState();
@@ -23,28 +33,80 @@ class CartePage extends StatefulWidget {
 
 class _CartePageState extends State<CartePage> {
   TourneeController get _controller => widget.controller;
-  late bool _conseilVisible = widget.conseilInstallation;
+  PositionController get _position => widget.position;
+
+  final _carte = MapController();
+  late final AppLifecycleListener _cycleDeVie;
+
+  /// Conseil « installez l'app » si elle est ouverte dans un onglet (ARCHITECTURE §7.5).
+  late bool _conseilVisible = !widget.plateforme.estAppInstallee;
+
+  /// Recentrer la carte dès la première position reçue après « Me localiser ».
+  bool _recentrerAuProchainPoint = false;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_afficherErreur);
+    _position.addListener(_surPosition);
+    // GPS coupé en arrière-plan (batterie), relancé au retour (ARCHITECTURE §7.6).
+    _cycleDeVie = AppLifecycleListener(onHide: _position.mettreEnPause, onShow: _position.reprendre);
   }
 
   @override
   void dispose() {
     _controller.removeListener(_afficherErreur);
+    _position.removeListener(_surPosition);
+    _cycleDeVie.dispose();
+    _carte.dispose();
     super.dispose();
+  }
+
+  void _signaler(String message, {bool erreur = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: erreur ? Theme.of(context).colorScheme.error : null,
+    ));
   }
 
   void _afficherErreur() {
     final message = _controller.derniereErreur;
     if (message == null) return;
     _controller.effacerErreur();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Theme.of(context).colorScheme.error),
-    );
+    _signaler(message, erreur: true);
   }
+
+  void _surPosition() {
+    final message = _position.message;
+    if (message != null) {
+      _position.effacerMessage();
+      _signaler(message, erreur: _position.etat == EtatGps.refuse);
+    }
+    final p = _position.position;
+    if (_recentrerAuProchainPoint && p != null) {
+      _recentrerAuProchainPoint = false;
+      _recentrer(p);
+    }
+  }
+
+  void _meLocaliser() {
+    final p = _position.position;
+    if (p != null) {
+      _recentrer(p);
+    } else {
+      _recentrerAuProchainPoint = true;
+    }
+    _position.demarrer();
+  }
+
+  void _recentrer(PositionGps p) => _carte.move(p.point, max(_carte.camera.zoom, 17));
+
+  void _ouvrirMenu() => Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => MenuPage(controller: _controller, plateforme: widget.plateforme),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +117,7 @@ class _CartePageState extends State<CartePage> {
       body: Stack(
         children: [
           FlutterMap(
+            mapController: _carte,
             options: MapOptions(
               initialCameraFit: CameraFit.bounds(bounds: emprise, padding: const EdgeInsets.all(24)),
               cameraConstraint: CameraConstraint.containCenter(bounds: emprise),
@@ -77,6 +140,7 @@ class _CartePageState extends State<CartePage> {
                 panBuffer: 0,
               ),
               CoucheBatiments(controller: _controller),
+              CouchePosition(position: _position),
               RichAttributionWidget(
                 alignment: AttributionAlignment.bottomLeft,
                 attributions: [
@@ -96,12 +160,32 @@ class _CartePageState extends State<CartePage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  BarreAvancement(controller: _controller),
+                  BarreAvancement(controller: _controller, onMenu: _ouvrirMenu),
                   if (_conseilVisible) ...[
                     const SizedBox(height: 8),
                     ConseilInstallation(onFermer: () => setState(() => _conseilVisible = false)),
                   ],
                 ],
+              ),
+            ),
+          ),
+          // Bouton « Me localiser », caché quand le panneau de statut est ouvert.
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: SafeArea(
+              top: false,
+              child: ListenableBuilder(
+                listenable: Listenable.merge([_controller, _position]),
+                builder: (context, _) {
+                  if (_controller.selection != null) return const SizedBox.shrink();
+                  return FloatingActionButton(
+                    key: const Key('bouton-gps'),
+                    tooltip: 'Me localiser',
+                    onPressed: _meLocaliser,
+                    child: _IconeGps(_position.etat),
+                  );
+                },
               ),
             ),
           ),
@@ -135,4 +219,22 @@ class _CartePageState extends State<CartePage> {
       ),
     );
   }
+}
+
+class _IconeGps extends StatelessWidget {
+  const _IconeGps(this.etat);
+
+  final EtatGps etat;
+
+  @override
+  Widget build(BuildContext context) => switch (etat) {
+        EtatGps.arrete => const Icon(Icons.location_searching),
+        EtatGps.recherche => const SizedBox.square(
+            dimension: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+        EtatGps.actif => const Icon(Icons.my_location),
+        EtatGps.refuse => const Icon(Icons.location_disabled),
+        EtatGps.indisponible => const Icon(Icons.gps_not_fixed),
+      };
 }
