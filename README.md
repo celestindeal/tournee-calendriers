@@ -42,6 +42,10 @@ La carte montre les **5 776 parcelles cadastrales bâties** des 6 communes. Les 
 | Fonction | Où | Ce qu'elle fait |
 | --- | --- | --- |
 | **Itinéraire** | Icône ➦ à côté de l'adresse, dans le panneau | Propose Plans (Apple), Google Maps ou Waze pour aller jusqu'à la maison (coordonnées du bâtiment principal, même sans adresse connue). |
+| **Mémos** | Bouton « Mémos » dans le panneau | Étiquettes à cocher : chien, pas de démarchage, mot laissé ; passer plutôt le matin / midi / soir / week-end ; un jour précis. Pas de texte libre (RGPD). Gardés d'une année sur l'autre. |
+| **Filtre** | Sous le compteur | Toutes / Non visitées / À repasser : la carte n'affiche que les parcelles choisies. |
+| **Listes** | Icône ☷ à côté du menu | « À repasser » et « Non visitées », par commune et par rue, avec date, mémos et itinéraire. Toucher une maison la montre sur la carte. |
+| **Nouvelle campagne** | Menu ☰ → Campagne | Une campagne par année : exporter, puis commencer l'année suivante. Toutes les maisons repassent en « non visité » ; l'ancienne campagne reste consultable (« En 2026 : acheté ») ; les mémos sont gardés. Seules les 2 dernières campagnes sont conservées. |
 | **Me localiser** | Bouton rond en bas à droite | Point bleu à votre position. Le GPS n'est demandé qu'à l'appui, et se coupe quand l'app passe en arrière-plan. |
 | **Exporter la tournée** | Menu ☰ | Crée un fichier de sauvegarde, à enregistrer dans Fichiers ou iCloud Drive. La date du dernier export s'affiche, en rouge s'il date de plus de 2 jours. |
 | **Importer une sauvegarde** | Menu ☰ | Remplace les statuts par ceux d'un fichier, après confirmation. |
@@ -57,7 +61,7 @@ Après une première ouverture avec du réseau, l'app **fonctionne sans réseau*
 - Les statuts sont enregistrés **immédiatement**, à chaque toucher, dans le stockage du navigateur de l'iPhone (IndexedDB).
 - ⚠️ L'app doit être **installée sur l'écran d'accueil** (Safari → Partager → « Sur l'écran d'accueil ») et **toujours ouverte depuis son icône**. Un onglet Safari a un stockage séparé, que iOS peut effacer. Un encadré jaune le rappelle si l'app est ouverte dans un onglet.
 - ⚠️ **Supprimer l'icône efface toutes les données.** Pendant la tournée, faites un **export chaque soir**.
-- Seuls sont enregistrés l'identifiant de la parcelle, son statut et la date. Pas de nom, pas de commentaire (RGPD).
+- Seuls sont enregistrés l'identifiant de la parcelle, son statut, la date, et les mémos cochés. Pas de nom, pas de texte libre (RGPD). Les statuts des campagnes passées ne sont gardés que pour les 2 dernières années.
 
 ### Mises à jour
 
