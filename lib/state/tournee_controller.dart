@@ -3,18 +3,21 @@ import 'package:flutter/foundation.dart';
 import '../data/export_service.dart';
 import '../data/tournee_repository.dart';
 import '../journal.dart';
+import '../models/archive_campagne.dart';
 import '../models/avancement.dart';
-import '../models/parcelle.dart';
 import '../models/campagne.dart';
 import '../models/etat_parcelle.dart';
+import '../models/filtre.dart';
 import '../models/jeu_parcelles.dart';
+import '../models/memo.dart';
+import '../models/parcelle.dart';
 import '../models/statut.dart';
 import 'migration.dart';
 
 /// État de la tournée affiché par l'interface (docs/ARCHITECTURE.md §5.1).
 ///
 /// Chaque changement met d'abord l'écran à jour (instantané), puis est écrit
-/// dans la base. Si l'écriture échoue, l'ancien statut est remis et
+/// dans la base. Si l'écriture échoue, l'ancien état est remis et
 /// [derniereErreur] est renseignée.
 class TourneeController extends ChangeNotifier {
   TourneeController({
@@ -24,24 +27,36 @@ class TourneeController extends ChangeNotifier {
   })  : _horloge = horloge ?? DateTime.now,
         _parId = {for (final b in jeu.parcelles) b.id: b};
 
+  /// Nombre de campagnes terminées gardées (les plus anciennes sont effacées :
+  /// on ne conserve pas l'historique des maisons indéfiniment, RGPD).
+  static const campagnesArchiveesGardees = 2;
+
   final TourneeRepository _repo;
   final DateTime Function() _horloge;
   final Map<String, Parcelle> _parId;
 
-  /// Les parcelles de la commune (lecture seule).
+  /// Les parcelles des communes de la tournée (lecture seule).
   final JeuParcelles jeu;
 
   /// États enregistrés. Peut contenir des ids absents de [jeu] (ancienne version
   /// de la carte) : ils sont conservés mais pas comptés.
   final Map<String, EtatParcelle> _etats = {};
 
+  /// Mémos par parcelle (gardés d'une campagne à l'autre).
+  final Map<String, Set<Memo>> _memos = {};
+
+  /// Campagnes terminées, de la plus récente à la plus ancienne.
+  List<ArchiveCampagne> _archives = const [];
+
   String? _selectionId;
   Campagne? _campagne;
   String? _derniereErreur;
   DateTime? _dernierExport;
   bool _peutAnnulerImport = false;
+  Filtre _filtre = Filtre.toutes;
 
   Campagne? get campagne => _campagne;
+  List<ArchiveCampagne> get archives => _archives;
 
   /// Date du dernier export réussi, ou `null` si jamais exporté.
   DateTime? get dernierExport => _dernierExport;
@@ -55,6 +70,9 @@ class TourneeController extends ChangeNotifier {
   /// Statuts enregistrés pour des parcelles absentes de la carte actuelle.
   int get nbEtatsInconnus => _etats.keys.where((id) => !_parId.containsKey(id)).length;
 
+  /// Nombre de parcelles qui ont au moins un mémo.
+  int get nbParcellesAvecMemos => _memos.length;
+
   /// Message à afficher une fois (puis appeler [effacerErreur]).
   String? get derniereErreur => _derniereErreur;
 
@@ -63,9 +81,9 @@ class TourneeController extends ChangeNotifier {
   int get statutsReportes => _statutsReportes;
   int _statutsReportes = 0;
 
-  /// Lit les statuts enregistrés. Crée la campagne au tout premier lancement.
-  /// Reporte une fois pour toutes les statuts de l'ancien suivi par bâtiment
-  /// sur leur parcelle (une copie d'avant le report est gardée dans la base).
+  /// Lit les statuts, mémos et campagnes enregistrés. Crée la campagne au tout
+  /// premier lancement. Reporte une fois pour toutes les statuts de l'ancien
+  /// suivi par bâtiment sur leur parcelle (une copie est gardée dans la base).
   Future<void> charger() async {
     var etats = await _repo.lireEtats();
     final migration = reporterSurParcelles(
@@ -89,6 +107,10 @@ class TourneeController extends ChangeNotifier {
     _etats
       ..clear()
       ..addAll(etats);
+    _memos
+      ..clear()
+      ..addAll(await _repo.lireMemos());
+    _archives = await _repo.lireArchives();
     _campagne = await _repo.lireCampagne();
     if (_campagne == null) {
       _campagne = Campagne(debut: _horloge().toUtc(), versionCarte: jeu.version);
@@ -99,68 +121,12 @@ class TourneeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Export / import (F8) ---------------------------------------------
-
-  /// Contenu du fichier d'export. Synchrone : l'interface peut ouvrir la
-  /// feuille de partage dans la foulée du toucher (ARCHITECTURE §7.7).
-  String contenuExport(DateTime maintenant) => ExportService.exporter(
-        etats: _etats.values,
-        versionCarte: jeu.version,
-        campagne: _campagne,
-        maintenant: maintenant,
-      );
-
-  Future<void> noterExport(DateTime quand) async {
-    _dernierExport = quand.toUtc();
-    notifyListeners();
-    await _repo.enregistrerDernierExport(_dernierExport!);
-  }
-
-  /// Lit un fichier d'export sans rien modifier.
-  /// Lève une [FormatException] au message lisible si le fichier est refusé.
-  /// Un export fait avant le passage aux parcelles est reporté sur les parcelles.
-  ResultatImport lireImport(String texte) => ExportService.lire(
-        texte,
-        idsConnus: _parId.keys.toSet(),
-        versionCarte: jeu.version,
-        correspondances: jeu.parcelleDeLAncienId,
-      );
-
-  /// Remplace tous les statuts par ceux du fichier. Une copie de la tournée
-  /// actuelle est gardée d'abord, pour pouvoir annuler ([annulerDernierImport]).
-  Future<void> importer(ResultatImport resultat) async {
-    await _repo.enregistrerSauvegardeAvantImport(contenuExport(_horloge()));
-    await _repo.remplacerTout(resultat.etats);
-    _remplacerEnMemoire(resultat.etats);
-    _peutAnnulerImport = true;
-    notifyListeners();
-  }
-
-  /// Remet la tournée telle qu'elle était juste avant le dernier import.
-  Future<void> annulerDernierImport() async {
-    final sauvegarde = await _repo.lireSauvegardeAvantImport();
-    if (sauvegarde == null) return;
-    final etats = ExportService.lire(
-      sauvegarde,
-      idsConnus: null,
-      versionCarte: jeu.version,
-      correspondances: jeu.parcelleDeLAncienId,
-    ).etats;
-    await _repo.remplacerTout(etats);
-    await _repo.effacerSauvegardeAvantImport();
-    _remplacerEnMemoire(etats);
-    _peutAnnulerImport = false;
-    notifyListeners();
-  }
-
-  void _remplacerEnMemoire(Iterable<EtatParcelle> etats) {
-    _selectionId = null;
-    _etats
-      ..clear()
-      ..addAll({for (final e in etats) e.parcelleId: e});
-  }
+  // --- Statuts ----------------------------------------------------------
 
   Statut statutDe(String parcelleId) => _etats[parcelleId]?.statut ?? Statut.nonVisite;
+
+  /// L'état enregistré (statut et date), ou `null` si non visitée.
+  EtatParcelle? etatDe(String parcelleId) => _etats[parcelleId];
 
   Parcelle? parcelle(String id) => _parId[id];
 
@@ -214,5 +180,173 @@ class TourneeController extends ChangeNotifier {
     } else {
       _etats[parcelleId] = etat;
     }
+  }
+
+  // --- Mémos ------------------------------------------------------------
+
+  Set<Memo> memosDe(String parcelleId) => _memos[parcelleId] ?? const {};
+
+  /// Coche ou décoche un mémo et l'enregistre immédiatement.
+  /// Renvoie `false` si l'enregistrement a échoué (l'ancien état est remis).
+  Future<bool> basculerMemo(String parcelleId, Memo memo) async {
+    if (!_parId.containsKey(parcelleId)) return false;
+    final avant = memosDe(parcelleId);
+    final apres = {...avant};
+    if (!apres.remove(memo)) apres.add(memo);
+    _appliquerMemos(parcelleId, apres);
+    notifyListeners();
+    try {
+      await _repo.enregistrerMemos(parcelleId, apres, _horloge().toUtc());
+      return true;
+    } catch (e) {
+      _appliquerMemos(parcelleId, avant);
+      _derniereErreur = 'Le mémo n\'a pas pu être enregistré. Réessayez.';
+      Journal.instance.ajouter('Échec d\'enregistrement des mémos de $parcelleId : $e');
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void _appliquerMemos(String parcelleId, Set<Memo> memos) {
+    if (memos.isEmpty) {
+      _memos.remove(parcelleId);
+    } else {
+      _memos[parcelleId] = memos;
+    }
+  }
+
+  // --- Filtre d'affichage (F9) --------------------------------------------
+
+  Filtre get filtre => _filtre;
+
+  void changerFiltre(Filtre filtre) {
+    if (filtre == _filtre) return;
+    _filtre = filtre;
+    // La maison sélectionnée peut disparaître de la carte : on ferme le panneau.
+    if (_selectionId != null && !_filtre.garde(statutDe(_selectionId!))) _selectionId = null;
+    notifyListeners();
+  }
+
+  /// Vrai si la parcelle est affichée avec le filtre actuel.
+  bool estVisible(String parcelleId) => _filtre.garde(statutDe(parcelleId));
+
+  // --- Campagnes (F11) ----------------------------------------------------
+
+  /// Statut de la parcelle lors de la dernière campagne terminée, ou `null`.
+  ({int annee, Statut statut})? statutPrecedent(String parcelleId) {
+    if (_archives.isEmpty) return null;
+    final derniere = _archives.first;
+    final statut = derniere.statuts[parcelleId];
+    return statut == null ? null : (annee: derniere.annee, statut: statut);
+  }
+
+  /// Termine la campagne en cours et en commence une nouvelle pour [annee] :
+  /// les statuts sont archivés (consultables : « en 2026 : acheté »), puis
+  /// toutes les maisons repassent en « non visité ». Les mémos sont gardés.
+  /// Seules les [campagnesArchiveesGardees] dernières archives sont conservées.
+  Future<void> nouvelleCampagne(int annee) async {
+    final actuelle = _campagne;
+    if (actuelle != null && annee <= actuelle.annee) {
+      throw ArgumentError('La nouvelle campagne doit être postérieure à ${actuelle.annee}.');
+    }
+    final maintenant = _horloge().toUtc();
+    if (actuelle != null) {
+      await _repo.enregistrerArchive(ArchiveCampagne(
+        annee: actuelle.annee,
+        debut: actuelle.debut,
+        fin: maintenant,
+        versionCarte: actuelle.versionCarte,
+        statuts: {for (final e in _etats.values) e.parcelleId: e.statut},
+      ));
+    }
+    var archives = await _repo.lireArchives();
+    for (final ancienne in archives.skip(campagnesArchiveesGardees)) {
+      await _repo.supprimerArchive(ancienne.annee);
+    }
+    archives = archives.take(campagnesArchiveesGardees).toList();
+
+    await _repo.remplacerTout(const []);
+    // La copie d'avant import concerne l'ancienne campagne : on ne doit plus pouvoir la restaurer.
+    await _repo.effacerSauvegardeAvantImport();
+    _campagne = Campagne(debut: maintenant, versionCarte: jeu.version, annee: annee);
+    await _repo.enregistrerCampagne(_campagne!);
+
+    _archives = archives;
+    _remplacerEnMemoire(const []);
+    _peutAnnulerImport = false;
+    notifyListeners();
+  }
+
+  // --- Export / import (F8) ---------------------------------------------
+
+  /// Contenu du fichier d'export. Synchrone : l'interface peut ouvrir la
+  /// feuille de partage dans la foulée du toucher (ARCHITECTURE §7.7).
+  String contenuExport(DateTime maintenant) => ExportService.exporter(
+        etats: _etats.values,
+        versionCarte: jeu.version,
+        campagne: _campagne,
+        maintenant: maintenant,
+        memos: _memos,
+      );
+
+  Future<void> noterExport(DateTime quand) async {
+    _dernierExport = quand.toUtc();
+    notifyListeners();
+    await _repo.enregistrerDernierExport(_dernierExport!);
+  }
+
+  /// Lit un fichier d'export sans rien modifier.
+  /// Lève une [FormatException] au message lisible si le fichier est refusé.
+  /// Un export fait avant le passage aux parcelles est reporté sur les parcelles.
+  ResultatImport lireImport(String texte) => ExportService.lire(
+        texte,
+        idsConnus: _parId.keys.toSet(),
+        versionCarte: jeu.version,
+        correspondances: jeu.parcelleDeLAncienId,
+      );
+
+  /// Remplace tous les statuts (et les mémos, si le fichier en contient) par
+  /// ceux du fichier. Une copie de la tournée actuelle est gardée d'abord,
+  /// pour pouvoir annuler ([annulerDernierImport]).
+  Future<void> importer(ResultatImport resultat) async {
+    await _repo.enregistrerSauvegardeAvantImport(contenuExport(_horloge()));
+    await _appliquerImport(resultat);
+    _peutAnnulerImport = true;
+    notifyListeners();
+  }
+
+  /// Remet la tournée telle qu'elle était juste avant le dernier import.
+  Future<void> annulerDernierImport() async {
+    final sauvegarde = await _repo.lireSauvegardeAvantImport();
+    if (sauvegarde == null) return;
+    final resultat = ExportService.lire(
+      sauvegarde,
+      idsConnus: null,
+      versionCarte: jeu.version,
+      correspondances: jeu.parcelleDeLAncienId,
+    );
+    await _appliquerImport(resultat);
+    await _repo.effacerSauvegardeAvantImport();
+    _peutAnnulerImport = false;
+    notifyListeners();
+  }
+
+  Future<void> _appliquerImport(ResultatImport resultat) async {
+    await _repo.remplacerTout(resultat.etats);
+    _remplacerEnMemoire(resultat.etats);
+    final memos = resultat.memos;
+    if (memos != null) {
+      await _repo.remplacerMemos(memos, _horloge().toUtc());
+      _memos
+        ..clear()
+        ..addAll(memos);
+    }
+  }
+
+  void _remplacerEnMemoire(Iterable<EtatParcelle> etats) {
+    _selectionId = null;
+    _etats
+      ..clear()
+      ..addAll({for (final e in etats) e.parcelleId: e});
   }
 }

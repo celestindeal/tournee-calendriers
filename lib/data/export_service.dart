@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../models/campagne.dart';
 import '../models/etat_parcelle.dart';
+import '../models/memo.dart';
 import '../models/statut.dart';
 
 /// Résultat de la lecture d'un fichier d'export.
@@ -11,10 +12,15 @@ class ResultatImport {
     required this.ignores,
     required this.autreVersionCarte,
     this.exporteLe,
+    this.memos,
   });
 
   /// États à importer (parcelles connues uniquement, sans « non visité »).
   final List<EtatParcelle> etats;
+
+  /// Mémos du fichier, ou `null` si le fichier n'en contient pas (export
+  /// antérieur aux mémos) : on garde alors ceux du téléphone.
+  final Map<String, Set<Memo>>? memos;
 
   /// Nombre d'états ignorés car la maison n'existe pas sur la carte de l'app.
   final int ignores;
@@ -45,6 +51,7 @@ class ExportService {
     required String versionCarte,
     required DateTime maintenant,
     Campagne? campagne,
+    Map<String, Set<Memo>> memos = const {},
   }) {
     final liste = etats.where((e) => e.statut != Statut.nonVisite).toList()
       ..sort((a, b) => a.parcelleId.compareTo(b.parcelleId));
@@ -53,9 +60,13 @@ class ExportService {
       'versionFormat': versionFormat,
       'exporteLe': maintenant.toUtc().toIso8601String(),
       'versionBatiments': versionCarte,
-      if (campagne != null) 'campagne': {'debut': campagne.debut.toUtc().toIso8601String()},
+      if (campagne != null) 'campagne': {'debut': campagne.debut.toUtc().toIso8601String(), 'annee': campagne.annee},
       'etats': [
         for (final e in liste) {'id': e.parcelleId, 's': e.statut.name, 't': e.modifieLe.millisecondsSinceEpoch},
+      ],
+      'memos': [
+        for (final id in memos.keys.toList()..sort())
+          if (memos[id]!.isNotEmpty) {'id': id, 'm': Memo.versNoms(memos[id]!)},
       ],
     });
   }
@@ -109,12 +120,32 @@ class ExportService {
       parId.putIfAbsent(cible, () => []).add(etat.pour(cible));
     }
 
+    // Mémos (absents des exports faits avant leur création).
+    Map<String, Set<Memo>>? memos;
+    final listeMemos = json['memos'];
+    if (listeMemos is List) {
+      memos = {};
+      for (final e in listeMemos) {
+        if (e is! Map || e['id'] is! String || e['m'] is! List) throw const FormatException(_abime);
+        final id = e['id'] as String;
+        final cible = idsConnus == null
+            ? correspondances[id] ?? id
+            : idsConnus.contains(id)
+                ? id
+                : correspondances[id];
+        if (cible == null) continue;
+        final lus = Memo.depuisNoms(e['m'] as List);
+        if (lus.isNotEmpty) memos.putIfAbsent(cible, () => {}).addAll(lus);
+      }
+    }
+
     final exporteLe = json['exporteLe'];
     return ResultatImport(
       etats: [for (final l in parId.values) EtatParcelle.lePlusParlant(l)],
       ignores: ignores,
       autreVersionCarte: json['versionBatiments'] != versionCarte,
       exporteLe: exporteLe is String ? DateTime.tryParse(exporteLe) : null,
+      memos: memos,
     );
   }
 }

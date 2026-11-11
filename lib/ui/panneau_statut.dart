@@ -4,6 +4,7 @@ import '../models/parcelle.dart';
 import '../models/statut.dart';
 import '../state/tournee_controller.dart';
 import 'itineraire.dart';
+import 'memos.dart';
 
 /// Panneau du bas : adresse de la parcelle touchée et gros boutons de statut (F2).
 /// Choisir un statut l'enregistre et ferme le panneau.
@@ -64,7 +65,43 @@ class PanneauStatut extends StatelessWidget {
                 ].join(' · '),
                 style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
-              const SizedBox(height: 12),
+              // Statut lors de la campagne précédente, s'il y en a une.
+              if (controller.statutPrecedent(parcelle.id) case final precedent?)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.history, size: 16, color: precedent.statut.couleur),
+                      const SizedBox(width: 4),
+                      Text(
+                        'En ${precedent.annee} : ${precedent.statut.libelle}',
+                        key: const Key('statut-precedent'),
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 6),
+              // Mémos de la maison (chien, plutôt le soir…) et bouton pour les modifier.
+              Row(
+                children: [
+                  Expanded(
+                    child: controller.memosDe(parcelle.id).isEmpty
+                        ? Text(
+                            'Aucun mémo',
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                          )
+                        : PucesMemos(memos: controller.memosDe(parcelle.id)),
+                  ),
+                  TextButton.icon(
+                    key: const Key('bouton-memos'),
+                    icon: const Icon(Icons.edit_note),
+                    label: const Text('Mémos'),
+                    onPressed: () => ouvrirFeuilleMemos(context, controller, parcelle.id, titre: parcelle.adresse),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: GridView.count(

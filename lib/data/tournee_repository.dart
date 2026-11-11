@@ -1,7 +1,9 @@
 import 'package:sembast/sembast.dart';
 
+import '../models/archive_campagne.dart';
 import '../models/campagne.dart';
 import '../models/etat_parcelle.dart';
+import '../models/memo.dart';
 import '../models/statut.dart';
 
 /// Lecture et écriture des statuts sur l'appareil.
@@ -12,8 +14,11 @@ import '../models/statut.dart';
 /// Stores (docs/ARCHITECTURE.md §4.4) :
 /// - `etats` : id de la parcelle → `{"s": statut, "t": date en ms}`.
 ///   Absence d'enregistrement = « non visité ».
-/// - `meta`  : `"campagne"` → `{"debut", "versionCarte"}` ;
+/// - `meta`  : `"campagne"` → `{"debut", "versionBatiments", "annee"}` ;
 ///   `"dernierExport"` → `{"t"}` ; `"sauvegardeAvantImport"` → `{"json"}`.
+/// - `memos` : id de la parcelle → `{"m": [noms des mémos], "t": date en ms}`.
+///   Gardés d'une campagne à l'autre. Absence = aucun mémo.
+/// - `archives` : année → campagne terminée (statut de chaque parcelle).
 class TourneeRepository {
   TourneeRepository._(this._db);
 
@@ -24,6 +29,8 @@ class TourneeRepository {
 
   static final _etats = stringMapStoreFactory.store('etats');
   static final _meta = stringMapStoreFactory.store('meta');
+  static final _memos = stringMapStoreFactory.store('memos');
+  static final _archives = stringMapStoreFactory.store('archives');
   static const _cleCampagne = 'campagne';
   static const _cleDernierExport = 'dernierExport';
   static const _cleSauvegarde = 'sauvegardeAvantImport';
@@ -114,6 +121,58 @@ class TourneeRepository {
 
   Future<void> enregistrerSauvegardeAvantParcelles(String json) async {
     await _meta.record(_cleSauvegardeParcelles).put(_db, {'json': json});
+  }
+
+  // --- Mémos (gardés d'une campagne à l'autre) ----------------------------
+
+  Future<Map<String, Set<Memo>>> lireMemos() async {
+    final memos = <String, Set<Memo>>{};
+    for (final e in await _memos.find(_db)) {
+      final m = e.value['m'];
+      if (m is! List) continue;
+      final lus = Memo.depuisNoms(m);
+      if (lus.isNotEmpty) memos[e.key] = lus;
+    }
+    return memos;
+  }
+
+  /// Enregistre les mémos d'une parcelle ; aucun mémo supprime l'enregistrement.
+  Future<void> enregistrerMemos(String parcelleId, Set<Memo> memos, DateTime quand) async {
+    final ref = _memos.record(parcelleId);
+    if (memos.isEmpty) {
+      await ref.delete(_db);
+    } else {
+      await ref.put(_db, {'m': Memo.versNoms(memos), 't': quand.millisecondsSinceEpoch});
+    }
+  }
+
+  /// Remplace tous les mémos d'un coup, en une seule transaction (import).
+  Future<void> remplacerMemos(Map<String, Set<Memo>> memos, DateTime quand) async {
+    await _db.transaction((txn) async {
+      await _memos.delete(txn);
+      for (final MapEntry(key: id, value: m) in memos.entries) {
+        if (m.isEmpty) continue;
+        await _memos.record(id).put(txn, {'m': Memo.versNoms(m), 't': quand.millisecondsSinceEpoch});
+      }
+    });
+  }
+
+  // --- Archives des campagnes terminées -----------------------------------
+
+  /// Les campagnes archivées, de la plus récente à la plus ancienne.
+  Future<List<ArchiveCampagne>> lireArchives() async {
+    final archives = [
+      for (final e in await _archives.find(_db)) ?ArchiveCampagne.depuisStockage(e.value),
+    ]..sort((a, b) => b.annee.compareTo(a.annee));
+    return archives;
+  }
+
+  Future<void> enregistrerArchive(ArchiveCampagne archive) async {
+    await _archives.record('${archive.annee}').put(_db, archive.versStockage());
+  }
+
+  Future<void> supprimerArchive(int annee) async {
+    await _archives.record('$annee').delete(_db);
   }
 
   Future<void> fermer() => _db.close();
