@@ -441,13 +441,34 @@ Sur iOS, tous les navigateurs utilisent WebKit, et Flutter désactive par défau
 
 ## 8. Build et déploiement
 
-En pratique, c'est **`.github/workflows/deployer.yml`** qui le fait à chaque `git push` sur `main` : analyse, tests, build, génération de `sw.js`, puis publication sur https://celestindeal.github.io/tournee-calendriers/. Rien n'est publié si un test échoue. Les commandes équivalentes :
+### 8.1 Deux environnements (depuis le 11/11/2026)
+
+| Environnement | Branche | Adresse | Base IndexedDB | Caches du service worker |
+| --- | --- | --- | --- | --- |
+| **Production** (app de la tournée) | `main` | https://celestindeal.github.io/tournee-calendriers/ | `tournee.db` | `app-…`, `tuiles-osm-v1` |
+| **Test** | `test` | https://celestindeal.github.io/tournee-calendriers/test/ | `tournee-test.db` | `test-app-…`, `test-tuiles-osm-v1` |
+
+- L'environnement est choisi à la compilation : `--dart-define=ENV=prod|test` (`lib/config.dart`). **Par défaut : production**, pour ne jamais changer le nom de la base de la production par erreur.
+- En test, l'app affiche un bandeau orange « VERSION DE TEST », son icône s'appelle « TEST » et sa couleur est orange (`tool/generer_sw.dart --environnement test` adapte `manifest.json` et `index.html`).
+- Les deux environnements sont sur le **même domaine**. Le service worker de production ignore donc le sous-dossier `test/`, qui a le sien (portée `/tournee-calendriers/test/`). Chacun ne supprime que ses propres caches.
+- Sur l'iPhone, chaque app installée sur l'écran d'accueil a son propre stockage : les deux apps peuvent cohabiter.
+
+**Processus de livraison :**
+1. Développer sur la branche `test`, puis `git push`. Le site de test est mis à jour.
+2. Essayer sur l'iPhone, avec l'app « TEST ».
+3. Une fois validé, fusionner `test` dans `main`, puis `git push`. La production est mise à jour, et l'app de la tournée se met à jour toute seule à l'ouverture suivante.
+
+### 8.2 Publication
+
+C'est **`.github/workflows/deployer.yml`** qui publie, à chaque `git push` sur `main` **ou** `test`. GitHub Pages ne publie qu'un seul site par dépôt : le workflow reconstruit donc **les deux branches** (production à la racine, test dans `test/`) et les publie ensemble. Seule la branche poussée est analysée et testée, et rien n'est publié si cela échoue. L'environnement GitHub `github-pages` autorise les branches `main` et `test`.
+
+Les commandes équivalentes, pour la production :
 
 ```bash
-flutter build web --release --no-web-resources-cdn --base-href /tournee-calendriers/
+flutter build web --release --no-web-resources-cdn --base-href /tournee-calendriers/ --dart-define=ENV=prod
 ```
 ```bash
-dart run tool/generer_sw.dart
+dart run tool/generer_sw.dart --environnement prod
 ```
 
 Pour tester la version de production sur le PC (http://localhost:8080), sans `--base-href`. Le hors-ligne s'y teste en arrêtant le serveur puis en rechargeant :
@@ -456,7 +477,7 @@ Pour tester la version de production sur le PC (http://localhost:8080), sans `--
 flutter build web --release --no-web-resources-cdn
 ```
 ```bash
-dart run tool/generer_sw.dart
+dart run tool/generer_sw.dart --environnement prod
 ```
 ```bash
 dart run tool/servir_web.dart
@@ -474,7 +495,7 @@ Le mode debug (`flutter run -d web-server`) reste bloqué au démarrage sans l'e
 2. ✅ Modèles + `TourneeRepository` + tests unitaires.
 3. ✅ Carte + polygones + panneau de statut + couleurs + barre d'avancement (F1–F5).
 4. ✅ Police embarquée, `flutter_bootstrap.js` personnalisé, `sw.js` + script, puis déploiement sur GitHub Pages et **premier test sur l'iPhone** (F7). Test réussi le 11/11/2026 : installation depuis Safari, statut changé, puis réouverture et changement de statut en mode Avion.
-5. ✅ GPS (F6), export/import (F8), page Diagnostic. Avant chaque import, une copie de la tournée est gardée dans IndexedDB (meta `sauvegardeAvantImport`), et le menu permet d'« Annuler le dernier import ». Le navigateur interdit d'ouvrir la feuille de partage sans toucher l'écran : l'« export automatique » du §4.5 n'est donc pas possible sur le web. La version de l'app (identifiant du commit) est passée au build par `--dart-define=VERSION_APP`.
+5. ✅ GPS (F6), export/import (F8), page Diagnostic. Avant chaque import, une copie de la tournée est gardée dans IndexedDB (meta `sauvegardeAvantImport`), et le menu permet d'« Annuler le dernier import ». Le navigateur interdit d'ouvrir la feuille de partage sans toucher l'écran : l'« export automatique » du §4.5 n'est donc pas possible sur le web. La version de l'app (identifiant du commit) est passée au build par `--dart-define=VERSION_APP`. Test réussi sur l'iPhone le 11/11/2026 : mise à jour automatique de l'app installée, GPS, export dans Fichiers, import puis annulation, page Diagnostic.
 6. Filtres, annulation, nouvelle campagne (F9–F11).
 
 ---

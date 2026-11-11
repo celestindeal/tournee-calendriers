@@ -12,8 +12,17 @@
 'use strict';
 
 const VERSION = '__VERSION__';
-const CACHE_APP = 'app-' + VERSION;
-const CACHE_TUILES = 'tuiles-osm-v1';
+
+/** Préfixe des caches : vide en production, « test- » pour l'environnement de test
+ *  (même domaine) : chaque environnement ne touche qu'à ses propres caches. */
+const PREFIXE = '__PREFIXE__';
+
+/** Sous-dossiers que ce service worker ne doit pas servir. En production :
+ *  « test/ », qui a son propre service worker et sa propre app. */
+const IGNORES = __IGNORES__;
+
+const CACHE_APP = PREFIXE + 'app-' + VERSION;
+const CACHE_TUILES = PREFIXE + 'tuiles-osm-v1';
 const MAX_TUILES = 1500;
 
 /** Fichiers de l'app, relatifs au service worker. */
@@ -34,7 +43,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     for (const nom of await caches.keys()) {
-      if (nom.startsWith('app-') && nom !== CACHE_APP) await caches.delete(nom);
+      if (nom.startsWith(PREFIXE + 'app-') && nom !== CACHE_APP) await caches.delete(nom);
     }
     await self.clients.claim();
   })());
@@ -47,11 +56,18 @@ self.addEventListener('fetch', (event) => {
 
   if (url.hostname === 'tile.openstreetmap.org') {
     event.respondWith(tuile(requete));
-  } else if (url.origin === self.location.origin) {
+  } else if (url.origin === self.location.origin && !estIgnore(url)) {
     event.respondWith(fichierApp(requete));
   }
-  // Autres domaines : comportement normal du navigateur.
+  // Autres domaines et sous-dossiers ignorés : comportement normal du navigateur.
 });
+
+/** Vrai pour une adresse d'un sous-dossier ignoré (ex. l'app de test). */
+function estIgnore(url) {
+  const base = new URL(self.registration.scope).pathname;
+  const chemin = url.pathname.startsWith(base) ? url.pathname.slice(base.length) : url.pathname;
+  return IGNORES.some((dossier) => chemin.startsWith(dossier));
+}
 
 /** App : cache d'abord, réseau sinon (et on garde la réponse pour la suite). */
 async function fichierApp(requete) {

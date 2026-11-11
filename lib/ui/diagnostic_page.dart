@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../config.dart';
 import '../journal.dart';
 import '../platform/plateforme.dart';
 import '../state/tournee_controller.dart';
@@ -27,7 +28,7 @@ class _DiagnosticPageState extends State<DiagnosticPage> {
     final maintenant = DateTime.now();
     final inconnus = c.nbEtatsInconnus;
     return [
-      ('Version de l\'app', versionApp),
+      ('Version de l\'app', '$versionApp (${estProduction ? 'production' : environnement}, base $nomBase)'),
       ('Carte', '${c.jeu.nomCommune}, ${c.jeu.batiments.length} bâtiments (version ${c.jeu.version})'),
       ('Statuts enregistrés', '${c.nbEtatsEnregistres}${inconnus > 0 ? ' (dont $inconnus hors carte)' : ''}'),
       ('Avancement', c.avancement.resume),

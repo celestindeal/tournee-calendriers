@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sembast_web/sembast_web.dart';
 
 import 'app.dart';
+import 'config.dart';
 import 'data/batiments_source.dart';
 import 'data/tournee_repository.dart';
 import 'journal.dart';
@@ -36,7 +37,8 @@ Future<TourneeController> _demarrer() async {
 
   final jeu = await BatimentsSource().charger();
   // IndexedDB du navigateur (sur l'iPhone : propre à l'app de l'écran d'accueil).
-  final repo = await TourneeRepository.ouvrir(databaseFactoryWeb);
+  // Base séparée pour l'environnement de test (voir config.dart).
+  final repo = await TourneeRepository.ouvrir(databaseFactoryWeb, nom: nomBase);
   final controller = TourneeController(repo: repo, jeu: jeu);
   await controller.charger();
   return controller;

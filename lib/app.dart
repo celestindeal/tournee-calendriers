@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'config.dart';
 import 'journal.dart';
 import 'platform/plateforme.dart';
 import 'state/position_controller.dart';
@@ -31,7 +32,7 @@ class _TourneeAppState extends State<TourneeApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Tournée calendriers',
+      title: estProduction ? 'Tournée calendriers' : 'Tournée TEST',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorSchemeSeed: const Color(0xFFC62828), // rouge pompiers

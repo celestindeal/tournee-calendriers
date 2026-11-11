@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
+import '../config.dart';
 import '../platform/plateforme.dart';
 import '../state/position_controller.dart';
 import '../state/tournee_controller.dart';
@@ -160,6 +161,7 @@ class _CartePageState extends State<CartePage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (!estProduction) const _BandeauTest(),
                   BarreAvancement(controller: _controller, onMenu: _ouvrirMenu),
                   if (_conseilVisible) ...[
                     const SizedBox(height: 8),
@@ -216,6 +218,25 @@ class _CartePageState extends State<CartePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Repère bien visible : on est sur l'environnement de test, pas sur l'app de la tournée.
+class _BandeauTest extends StatelessWidget {
+  const _BandeauTest();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(color: const Color(0xFFEF6C00), borderRadius: BorderRadius.circular(8)),
+      child: const Text(
+        'VERSION DE TEST – données séparées de l\'app de la tournée',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
       ),
     );
   }

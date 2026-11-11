@@ -1,12 +1,16 @@
-# Publie l'app sur GitHub Pages à chaque push sur main
-# (https://celestindeal.github.io/tournee-calendriers/).
-# Rien n'est publié si l'analyse ou un test échoue.
+# Publie l'app sur GitHub Pages, en deux environnements :
+#   - production : branche main → https://celestindeal.github.io/tournee-calendriers/
+#   - test       : branche test → https://celestindeal.github.io/tournee-calendriers/test/
+#
+# GitHub Pages ne publie qu'un site par dépôt : chaque déploiement reconstruit
+# donc les DEUX branches et les publie ensemble. Seule la branche poussée est
+# analysée et testée ; rien n'est publié si cela échoue.
 
 name: Déployer sur GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, test]
   workflow_dispatch: # bouton « Run workflow » dans l'onglet Actions
 
 permissions:
@@ -23,7 +27,17 @@ jobs:
   construire:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - name: Récupérer la production (main)
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          path: prod
+
+      - name: Récupérer le test (test)
+        uses: actions/checkout@v7
+        with:
+          ref: test
+          path: test
 
       - uses: subosito/flutter-action@v2
         with:
@@ -31,18 +45,42 @@ jobs:
           channel: stable
           cache: true
 
-      - run: flutter pub get
-      - run: flutter analyze
-      - run: flutter test
+      - name: Analyser et tester la branche poussée (${{ github.ref_name }})
+        working-directory: ${{ github.ref_name == 'main' && 'prod' || 'test' }}
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
 
       # --no-web-resources-cdn : moteur de rendu servi par l'app (hors-ligne, ARCHITECTURE §7.2)
       # VERSION_APP : identifiant court du commit, affiché dans la page Diagnostic
-      - run: flutter build web --release --no-web-resources-cdn --no-wasm-dry-run --base-href /tournee-calendriers/ --dart-define=VERSION_APP=${GITHUB_SHA::7}
-      - run: dart run tool/generer_sw.dart
+      - name: Construire la production
+        working-directory: prod
+        run: |
+          flutter pub get
+          flutter build web --release --no-web-resources-cdn --no-wasm-dry-run \
+            --base-href /tournee-calendriers/ \
+            --dart-define=ENV=prod --dart-define=VERSION_APP=$(git rev-parse --short=7 HEAD)
+          dart run tool/generer_sw.dart --environnement prod
+
+      - name: Construire le test
+        working-directory: test
+        run: |
+          flutter pub get
+          flutter build web --release --no-web-resources-cdn --no-wasm-dry-run \
+            --base-href /tournee-calendriers/test/ \
+            --dart-define=ENV=test --dart-define=VERSION_APP=$(git rev-parse --short=7 HEAD)
+          dart run tool/generer_sw.dart --environnement test
+
+      - name: Assembler le site (production + test/)
+        run: |
+          mkdir -p site/test
+          cp -r prod/build/web/. site/
+          cp -r test/build/web/. site/test/
 
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: build/web
+          path: site
 
   deployer:
     needs: construire
