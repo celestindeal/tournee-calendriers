@@ -363,6 +363,8 @@ Par défaut, une app Flutter web télécharge :
 
 Hors-ligne, au premier lancement sans réseau, l'app peut ne rien afficher ou afficher du texte vide.
 
+> Constaté le 11/11/2026 sur le build de production de l'étape 3 : l'app charge `www.gstatic.com/flutter-canvaskit/…` et `fonts.gstatic.com/s/roboto/…`.
+
 Parades :
 - Construire avec **`--no-web-resources-cdn`** : CanvasKit est alors servi par notre propre site, donc pré-caché par `sw.js`.
 - **Embarquer une police** (par ex. Roboto ou Inter, dans `assets/fonts/`), déclarée dans `pubspec.yaml` et utilisée comme `fontFamily` du thème.
@@ -433,6 +435,17 @@ flutter build web --release --no-web-resources-cdn --base-href /tournee-calendri
 dart run tool/generer_sw.dart
 ```
 
+Pour tester la version de production sur le PC (http://localhost:8080), sans `--base-href` :
+
+```bash
+flutter build web --release
+```
+```bash
+dart run tool/servir_web.dart
+```
+
+Le mode debug (`flutter run -d web-server`) reste bloqué au démarrage sans l'extension Chrome « Dart Debug » : utiliser `flutter run -d chrome`, ou la version de production ci-dessus.
+
 - `--base-href /tournee-calendriers/` : GitHub Pages sert le site sous `https://celestindeal.github.io/tournee-calendriers/`. Dans `manifest.json`, `start_url` et `scope` doivent être relatifs (`"./"`).
 - Plus tard : une GitHub Action fera ces deux commandes et publiera `build/web` sur GitHub Pages à chaque `push` sur `main` (gratuit pour un repo public).
 
@@ -442,7 +455,7 @@ dart run tool/generer_sw.dart
 
 1. ✅ `tool/preparer_donnees.dart` + `assets/data/batiments.json` (Saint-Héand, 42234).
 2. ✅ Modèles + `TourneeRepository` + tests unitaires.
-3. Carte + polygones + panneau de statut + couleurs + barre d'avancement (F1–F5).
+3. ✅ Carte + polygones + panneau de statut + couleurs + barre d'avancement (F1–F5).
 4. Police embarquée, `flutter_bootstrap.js` personnalisé, `sw.js` + script, puis déploiement sur GitHub Pages et **premier test sur l'iPhone** (F7). On le fait tôt, car c'est le plus risqué.
 5. GPS (F6), export/import (F8), page Diagnostic.
 6. Filtres, annulation, nouvelle campagne (F9–F11).

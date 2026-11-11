@@ -37,6 +37,7 @@ dependencies:
   latlong2: ^0.10.1
   sembast: ^3.10.1
   sembast_web: ^2.4.7
+  flutter_map: ^8.3.2
 
 dev_dependencies:
   flutter_test:
