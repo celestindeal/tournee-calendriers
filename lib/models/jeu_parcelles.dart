@@ -1,26 +1,27 @@
 import 'package:latlong2/latlong.dart';
 
+import 'commune.dart';
 import 'parcelle.dart';
 
 /// Contenu complet de `assets/data/parcelles.json` (généré par
-/// tool/preparer_donnees.dart).
+/// tool/preparer_donnees.dart) : les parcelles de toutes les communes de la tournée.
 class JeuParcelles {
   JeuParcelles({
     required this.version,
-    required this.codeInsee,
-    required this.nomCommune,
+    required this.communes,
     required this.sources,
     required this.centre,
     required this.sudOuest,
     required this.nordEst,
     required this.parcelles,
-  }) : parcelleDeLAncienId = {
+  })  : parcelleDeLAncienId = {
           for (final p in parcelles)
             for (final ancien in p.anciensIds) ancien: p.id,
-        };
+        },
+        _nomParInsee = {for (final c in communes) c.insee: c.nom};
 
-  /// Format attendu du fichier : 2 = suivi par parcelle.
-  static const formatAttendu = 2;
+  /// Format attendu du fichier : 3 = plusieurs communes, suivi par parcelle.
+  static const formatAttendu = 3;
 
   factory JeuParcelles.depuisJson(Map<String, dynamic> json) {
     if (json['format'] != formatAttendu) {
@@ -30,7 +31,10 @@ class JeuParcelles {
     if (version is! String || version.isEmpty) {
       throw const FormatException('Fichier de parcelles sans version');
     }
-    final commune = json['commune'] as Map<String, dynamic>;
+    final communes = [
+      for (final c in json['communes'] as List) Commune.depuisJson(c as Map<String, dynamic>),
+    ];
+    if (communes.isEmpty) throw const FormatException('Fichier de parcelles sans commune');
     final bbox = json['bbox'] as List;
     final parcelles = [
       for (final p in json['parcelles'] as List) Parcelle.depuisJson(p as Map<String, dynamic>),
@@ -41,8 +45,7 @@ class JeuParcelles {
     }
     return JeuParcelles(
       version: version,
-      codeInsee: commune['insee'] as String,
-      nomCommune: commune['nom'] as String,
+      communes: communes,
       sources: [for (final s in (json['sources'] as Map).values) s as String],
       centre: _latLng(json['centre']),
       sudOuest: _latLng(bbox[0]),
@@ -51,16 +54,17 @@ class JeuParcelles {
     );
   }
 
-  /// Millésime du cadastre + empreinte du contenu, par ex. `2026-09-01-c076d874`.
+  /// Millésime du cadastre + empreinte du contenu, par ex. `2026-09-01-967fca8b`.
   /// Comparée à celle d'un export pour détecter une autre version de la carte.
   final String version;
 
-  final String codeInsee;
-  final String nomCommune;
+  /// Les communes de la tournée. La première sert de vue de départ.
+  final List<Commune> communes;
 
   /// Mentions de source à afficher (cadastre, BAN).
   final List<String> sources;
 
+  /// Centre et emprise de toutes les communes réunies.
   final LatLng centre;
   final LatLng sudOuest;
   final LatLng nordEst;
@@ -68,6 +72,11 @@ class JeuParcelles {
 
   /// Ancien identifiant de bâtiment (suivi par bâtiment) → parcelle actuelle.
   final Map<String, String> parcelleDeLAncienId;
+
+  final Map<String, String> _nomParInsee;
+
+  /// Nom de la commune d'après son code INSEE (`null` si inconnu).
+  String? nomCommune(String? insee) => _nomParInsee[insee];
 
   static LatLng _latLng(Object? valeur) {
     final l = valeur as List;

@@ -1,6 +1,6 @@
 // Prépare assets/data/parcelles.json à partir du cadastre Etalab (bâtiments
-// et parcelles) et de la Base Adresse Nationale (BAN). À lancer une fois,
-// avant la mise en ligne :
+// et parcelles) et de la Base Adresse Nationale (BAN), pour toutes les
+// communes de la tournée. À lancer une fois, avant la mise en ligne :
 //
 //   dart run tool/preparer_donnees.dart
 //
@@ -8,9 +8,12 @@
 // bâtiment gardé : on touche un bâtiment, toute la parcelle prend la couleur.
 // Chaque parcelle garde les anciens identifiants de ses bâtiments (géohash),
 // pour reporter les statuts saisis avant le passage aux parcelles.
+// Chaque commune est traitée séparément, exactement de la même façon (les
+// identifiants d'une commune ne dépendent pas des autres), puis tout est
+// réuni dans un seul fichier.
 //
 // Options :
-//   --insee 42234            code INSEE de la commune
+//   --insee 42234,42010      codes INSEE des communes (par défaut : les 6 de la tournée)
 //   --surface-min 20         surface minimale des bâtiments gardés, en m²
 //   --distance-max 60        distance maximale bâtiment → adresse (secours), en mètres
 //   --types 01,03            types de bâti gardés (01 = dur, 02 = léger, 03 = autre)
@@ -37,22 +40,111 @@ const _toleranceSimplification = 0.3;
 /// Tolérance de simplification des contours de parcelles, en mètres.
 const _toleranceParcelles = 0.5;
 
+/// Communes de la tournée : Saint-Héand, Aveizieux, Saint-Bonnet-les-Oules,
+/// La Gimond, Fontanès, La Fouillouse.
+const _communesParDefaut = '42234,42010,42206,42100,42096,42097';
+
 Future<void> main(List<String> args) async {
   String option(String nom, String defaut) {
     final i = args.indexOf('--$nom');
     return i >= 0 && i + 1 < args.length ? args[i + 1] : defaut;
   }
 
-  final insee = option('insee', '42234');
+  final codes = option('insee', _communesParDefaut).split(',').map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
   final surfaceMin = double.parse(option('surface-min', '20'));
   final distanceMax = double.parse(option('distance-max', '60'));
   final typesGardes = option('types', '01,03').split(',').toSet();
   final retelecharger = args.contains('--retelecharger');
-  final dep = insee.startsWith('97') ? insee.substring(0, 3) : insee.substring(0, 2);
 
   final racine = File.fromUri(Platform.script).parent.parent;
   final dossierBrut = Directory('${racine.path}/donnees_brutes')..createSync(recursive: true);
   final sortie = File('${racine.path}/assets/data/parcelles.json');
+
+  // 1. Chaque commune, traitée séparément.
+  final resultats = <Map<String, dynamic>>[];
+  for (final insee in codes) {
+    print('══════════ Commune $insee ══════════');
+    resultats.add(await _traiterCommune(
+      insee,
+      dossierBrut: dossierBrut,
+      surfaceMin: surfaceMin,
+      distanceMax: distanceMax,
+      typesGardes: typesGardes,
+      retelecharger: retelecharger,
+    ));
+    print('');
+  }
+
+  // 2. Réunion : chaque parcelle porte le code INSEE de sa commune (« co »).
+  final unites = <Map<String, Object>>[
+    for (final r in resultats)
+      for (final u in (r['parcelles'] as List).cast<Map<String, Object>>()) {...u, 'co': (r['commune'] as Map)['insee'] as String},
+  ];
+  final vus = <String>{};
+  for (final u in unites) {
+    if (!vus.add(u['id']! as String)) _erreur('Identifiant en double entre deux communes : ${u['id']}');
+  }
+  var minLat = 90.0, minLon = 180.0, maxLat = -90.0, maxLon = -180.0;
+  for (final r in resultats) {
+    final bbox = r['bbox'] as List;
+    minLat = min(minLat, (bbox[0] as List)[0] as double);
+    minLon = min(minLon, (bbox[0] as List)[1] as double);
+    maxLat = max(maxLat, (bbox[1] as List)[0] as double);
+    maxLon = max(maxLon, (bbox[1] as List)[1] as double);
+  }
+  final millesimes = {for (final r in resultats) r['millesime'] as String}.join('+');
+  final donnees = {
+    // 3 = plusieurs communes (2 = une seule commune, 1 = suivi par bâtiment).
+    'format': 3,
+    'version': '$millesimes-${_fnv1a(jsonEncode(unites))}',
+    'communes': [
+      for (final r in resultats)
+        {
+          ...(r['commune'] as Map).cast<String, Object?>(),
+          'version': r['version'],
+          'parcelles': (r['parcelles'] as List).length,
+          'bbox': r['bbox'], // emprise de la commune (vue de départ de la carte)
+        },
+    ],
+    'sources': resultats.first['sources'],
+    'parametres': resultats.first['parametres'],
+    'centre': _coord(Point((minLon + maxLon) / 2, (minLat + maxLat) / 2)),
+    'bbox': [
+      [minLat, minLon],
+      [maxLat, maxLon],
+    ],
+    'parcelles': unites,
+  };
+  sortie.parent.createSync(recursive: true);
+  sortie.writeAsStringSync(jsonEncode(donnees));
+  // Les anciens fichiers ne sont plus utilisés.
+  final ancien = File('${racine.path}/assets/data/batiments.json');
+  if (ancien.existsSync()) ancien.deleteSync();
+
+  // 3. Bilan.
+  print('══════════ Total ══════════');
+  for (final c in donnees['communes']! as List) {
+    final m = c as Map;
+    print('${(m['nom'] as String).padRight(24)} ${m['insee']}  ${m['parcelles'].toString().padLeft(5)} unités  (version ${m['version']})');
+  }
+  print('Unités suivies ........ ${unites.length}');
+  print('Bâtiments ............. ${unites.fold<int>(0, (n, u) => n + (u['b']! as List).length)}');
+  print('Fichier ............... ${sortie.path}');
+  print('Taille ................ ${(sortie.lengthSync() / 1024).toStringAsFixed(0)} Ko '
+      '(${(gzip.encode(sortie.readAsBytesSync()).length / 1024).toStringAsFixed(0)} Ko compressé)');
+  print('Version ............... ${donnees['version']}');
+}
+
+/// Traite une commune et renvoie ses données (sans rien écrire).
+Future<Map<String, dynamic>> _traiterCommune(
+  String insee, {
+  required Directory dossierBrut,
+  required double surfaceMin,
+  required double distanceMax,
+  required Set<String> typesGardes,
+  required bool retelecharger,
+}) async {
+  final dep = insee.startsWith('97') ? insee.substring(0, 3) : insee.substring(0, 2);
 
   // 1. Téléchargement des fichiers bruts (si absents).
   final fCadastre = File('${dossierBrut.path}/cadastre-$insee-batiments.json.gz');
@@ -317,16 +409,10 @@ Future<void> main(List<String> args) async {
       [_arrondi(maxLat), _arrondi(maxLon)],
     ],
     'parcelles': unites,
+    'millesime': millesimeCadastre,
   };
-  sortie.parent.createSync(recursive: true);
-  sortie.writeAsStringSync(jsonEncode(donnees));
-  // L'ancien fichier (suivi par bâtiment) n'est plus utilisé.
-  final ancien = File('${racine.path}/assets/data/batiments.json');
-  if (ancien.existsSync()) ancien.deleteSync();
 
-  // 8. Bilan.
-  final tailleKo = sortie.lengthSync() / 1024;
-  final tailleGzKo = gzip.encode(sortie.readAsBytesSync()).length / 1024;
+  // 8. Bilan de la commune.
   int nbDist(double max) => distances.where((d) => d <= max).length;
   final repartition = <int, int>{};
   for (final l in batimentsParParcelle.values) {
@@ -356,10 +442,8 @@ Future<void> main(List<String> args) async {
       '$avecAdresseProche la plus proche, $sansAdresse sans');
   print('Parcelles à 2 adresses+ ${unites.where((u) => (u['a'] as String?)?.contains(' / ') ?? false).length}');
   print('Anciens ids reportés .. ${unites.fold<int>(0, (n, u) => n + (u['anciens']! as List).length)} / ${gardes.length}');
-  print('');
-  print('Fichier ............... ${sortie.path}');
-  print('Taille ................ ${tailleKo.toStringAsFixed(0)} Ko (${tailleGzKo.toStringAsFixed(0)} Ko compressé)');
-  print('Version ............... ${donnees['version']}');
+  print('Version de la commune . ${donnees['version']}');
+  return donnees;
 }
 
 // ---------------------------------------------------------------------------

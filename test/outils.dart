@@ -1,6 +1,7 @@
 import 'package:latlong2/latlong.dart';
 import 'package:sembast/sembast_memory.dart';
 import 'package:tournee_calendriers/data/tournee_repository.dart';
+import 'package:tournee_calendriers/models/commune.dart';
 import 'package:tournee_calendriers/models/parcelle.dart';
 import 'package:tournee_calendriers/models/jeu_parcelles.dart';
 import 'package:tournee_calendriers/platform/plateforme.dart';
@@ -22,11 +23,13 @@ JeuParcelles jeuDeTest() {
           [LatLng(lat, 4.38), LatLng(lat + 0.0001, 4.38), LatLng(lat, 4.3801)],
         ],
         anciensIds: anciens,
+        codeInsee: '42234',
       );
   return JeuParcelles(
     version: 'test-1',
-    codeInsee: '42234',
-    nomCommune: 'Saint-Héand',
+    communes: const [
+      Commune(insee: '42234', nom: 'Saint-Héand', sudOuest: LatLng(45.50, 4.34), nordEst: LatLng(45.56, 4.42)),
+    ],
     sources: const ['Cadastre', 'BAN'],
     centre: const LatLng(45.53, 4.38),
     sudOuest: const LatLng(45.50, 4.34),
@@ -71,8 +74,7 @@ extension CopieJeu on JeuParcelles {
   /// Le même jeu sans un bâtiment (simule un jeu de bâtiments régénéré).
   JeuParcelles copieSans(String id) => JeuParcelles(
         version: version,
-        codeInsee: codeInsee,
-        nomCommune: nomCommune,
+        communes: communes,
         sources: sources,
         centre: centre,
         sudOuest: sudOuest,

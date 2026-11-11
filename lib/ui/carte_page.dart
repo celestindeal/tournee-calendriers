@@ -3,7 +3,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
+import 'package:latlong2/latlong.dart';
+
 import '../config.dart';
+import '../models/jeu_parcelles.dart';
 import '../platform/plateforme.dart';
 import '../state/position_controller.dart';
 import '../state/tournee_controller.dart';
@@ -120,7 +123,11 @@ class _CartePageState extends State<CartePage> {
           FlutterMap(
             mapController: _carte,
             options: MapOptions(
-              initialCameraFit: CameraFit.bounds(bounds: emprise, padding: const EdgeInsets.all(24)),
+              // Vue de départ : le bourg de la première commune (Saint-Héand),
+              // assez zoomée pour voir et toucher les maisons. On rejoint les
+              // autres communes en déplaçant la carte (ou avec « Me localiser »).
+              initialCenter: _centreDepart(jeu),
+              initialZoom: 15,
               cameraConstraint: CameraConstraint.containCenter(bounds: emprise),
               minZoom: 12,
               maxZoom: 19,
@@ -221,6 +228,20 @@ class _CartePageState extends State<CartePage> {
       ),
     );
   }
+}
+
+/// Centre moyen des parcelles de la première commune : tombe dans le bourg,
+/// là où les maisons sont les plus denses.
+LatLng _centreDepart(JeuParcelles jeu) {
+  final insee = jeu.communes.first.insee;
+  final parcelles = jeu.parcelles.where((p) => p.codeInsee == insee).toList();
+  if (parcelles.isEmpty) return jeu.centre;
+  var lat = 0.0, lon = 0.0;
+  for (final p in parcelles) {
+    lat += p.centre.latitude;
+    lon += p.centre.longitude;
+  }
+  return LatLng(lat / parcelles.length, lon / parcelles.length);
 }
 
 /// Repère bien visible : on est sur l'environnement de test, pas sur l'app de la tournée.

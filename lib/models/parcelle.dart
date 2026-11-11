@@ -11,6 +11,7 @@ class Parcelle {
     required this.centre,
     required this.surfaceM2,
     this.adresse,
+    this.codeInsee,
     this.anciensIds = const [],
   });
 
@@ -33,6 +34,7 @@ class Parcelle {
       centre: _latLng(json['c']),
       surfaceM2: (json['s'] as num).toDouble(),
       adresse: json['a'] as String?,
+      codeInsee: json['co'] as String?,
       anciensIds: [for (final a in json['anciens'] as List? ?? const []) a as String],
     );
   }
@@ -55,6 +57,9 @@ class Parcelle {
 
   /// « 12 Rue Apollo », « 12 Rue Apollo / 14 Rue Apollo », ou `null`.
   final String? adresse;
+
+  /// Code INSEE de la commune de la parcelle (ex. « 42234 »).
+  final String? codeInsee;
 
   /// Identifiants des bâtiments de cette parcelle dans l'ancien suivi par
   /// bâtiment (avant le 11/11/2026) : servent à reporter les statuts déjà saisis.

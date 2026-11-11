@@ -53,8 +53,12 @@ class PanneauStatut extends StatelessWidget {
                 ],
               ),
               Text(
-                '${actuel.libelle} · terrain de ${parcelle.surfaceM2.round()} m²'
-                '${parcelle.batiments.length > 1 ? ' · ${parcelle.batiments.length} bâtiments' : ''}',
+                [
+                  actuel.libelle,
+                  ?controller.jeu.nomCommune(parcelle.codeInsee), // l'adresse ne dit pas la commune
+                  'terrain de ${parcelle.surfaceM2.round()} m²',
+                  if (parcelle.batiments.length > 1) '${parcelle.batiments.length} bâtiments',
+                ].join(' · '),
                 style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 12),

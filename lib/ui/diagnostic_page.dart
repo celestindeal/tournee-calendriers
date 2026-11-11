@@ -29,7 +29,11 @@ class _DiagnosticPageState extends State<DiagnosticPage> {
     final inconnus = c.nbEtatsInconnus;
     return [
       ('Version de l\'app', '$versionApp (${estProduction ? 'production' : environnement}, base $nomBase)'),
-      ('Carte', '${c.jeu.nomCommune}, ${c.jeu.parcelles.length} parcelles (version ${c.jeu.version})'),
+      (
+        'Carte',
+        '${c.jeu.parcelles.length} parcelles, version ${c.jeu.version}\n'
+            '${c.jeu.communes.map((commune) => commune.nom).join(', ')}',
+      ),
       ('Statuts enregistrés', '${c.nbEtatsEnregistres}${inconnus > 0 ? ' (dont $inconnus hors carte)' : ''}'),
       ('Avancement', c.avancement.resume),
       ('Campagne commencée', c.campagne == null ? 'inconnue' : dateCourte(c.campagne!.debut)),

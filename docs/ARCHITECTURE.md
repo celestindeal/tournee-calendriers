@@ -141,6 +141,20 @@ enum Statut {
 
 Les **noms** de l'enum (`achete`, `aRepasser`…) sont écrits dans la base et dans les exports. Ne jamais les renommer sans migration.
 
+### 4.1 ter Six communes (depuis le 11/11/2026)
+
+- Communes : Saint-Héand (42234), Aveizieux (42010), Saint-Bonnet-les-Oules (42206), La Gimond (42100), Fontanès (42096), La Fouillouse (42097). Au total : **5 776 parcelles** et 7 696 bâtiments ; 2,8 Mo (636 Ko compressé).
+- `tool/preparer_donnees.dart --insee <liste>` traite **chaque commune séparément**, exactement comme avant. Les identifiants d'une commune ne dépendent donc pas des autres : Saint-Héand garde sa version `c076d874` et ses anciens identifiants. Les communes sont ensuite réunies dans `parcelles.json` (`"format": 3`) :
+  - `communes` : `[{insee, nom, version, parcelles, bbox}]` ;
+  - chaque parcelle porte `co` (code INSEE).
+- Modèles : `Commune`, `JeuParcelles.communes`, `JeuParcelles.nomCommune(insee)`, `Parcelle.codeInsee`.
+- Carte :
+  - ouverture zoomée (zoom 15) sur le **bourg de la première commune** (centre moyen de ses parcelles) ;
+  - **sous le zoom 13,5** (`CoucheParcelles.zoomDetail`), seules les parcelles déjà colorées sont dessinées, avec le message « Zoomez pour voir et toucher les maisons » ;
+  - les listes de polygones ne sont reconstruites qu'au changement de statut ou de seuil, pas à chaque déplacement.
+  - **À vérifier sur l'iPhone** : la fluidité au-dessus du seuil.
+- Panneau : affiche le nom de la commune (les adresses ne le précisent pas).
+
 ### 4.1 bis Suivi par PARCELLE (depuis le 11/11/2026)
 
 > ⚠️ Cette section remplace le suivi par bâtiment décrit en §4.2 (gardé pour l'historique).

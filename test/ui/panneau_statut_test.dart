@@ -55,7 +55,7 @@ void main() {
   testWidgets('le statut actuel est coché et peut être remis à « non visité »', (tester) async {
     await tester.runAsync(() => controller.changerStatut('a', Statut.refus));
     await afficher(tester, 'a');
-    expect(find.text('Fait – refus · terrain de 944 m²'), findsOneWidget);
+    expect(find.text('Fait – refus · Saint-Héand · terrain de 944 m²'), findsOneWidget);
     expect(
       find.descendant(of: find.byKey(const Key('bouton-refus')), matching: find.byIcon(Icons.check_circle)),
       findsOneWidget,
