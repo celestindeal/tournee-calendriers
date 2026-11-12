@@ -74,7 +74,7 @@ void main() {
       }
       final enDouble = jeu.parcelles.where((p) => secteurs.where((s) => s.contient(p.centre)).length > 1).toList();
       // ignore: avoid_print
-      print('Maisons dans deux tournées : ${enDouble.length} ${[for (final p in enDouble.take(10)) p.adresse ?? p.id]}');
+      print('Maisons dans deux tournées : ${enDouble.length} ${[for (final p in enDouble.take(10)) '${p.adresse ?? p.id} (tournées ${[for (final s in secteurs) if (s.contient(p.centre)) s.numero].join(' et ')})']}');
       final dedans = jeu.parcelles.where((p) => t7.contient(p.centre)).toList();
       expect(dedans.length, greaterThan(100));
       expect(dedans.length, lessThan(jeu.parcelles.length ~/ 2));
