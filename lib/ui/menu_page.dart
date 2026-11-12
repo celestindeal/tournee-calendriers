@@ -248,7 +248,7 @@ class MenuPage extends StatelessWidget {
                   key: const Key('menu-nouvelle-campagne'),
                   leading: const Icon(Icons.restart_alt),
                   title: const Text('Nouvelle campagne…'),
-                  subtitle: const Text('Archive cette année et remet toutes les maisons à zéro'),
+                  subtitle: const Text('Archive cette année et remet les maisons à zéro (sauf « non concerné »)'),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute<void>(builder: (_) => NouvelleCampagnePage(controller: controller)),

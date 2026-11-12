@@ -6,6 +6,7 @@ import 'package:tournee_calendriers/models/filtre.dart';
 import 'package:tournee_calendriers/models/memo.dart';
 import 'package:tournee_calendriers/models/statut.dart';
 import 'package:tournee_calendriers/state/tournee_controller.dart';
+import 'package:tournee_calendriers/synchro/changement.dart';
 
 import '../outils.dart';
 
@@ -102,6 +103,35 @@ void main() {
       expect(c2.campagne!.annee, 2027);
       expect(c2.statutPrecedent('a')?.statut, Statut.achete);
       expect(c2.memosDe('a'), {Memo.chien});
+    });
+
+    test('nouvelle campagne : les « non concerné » le restent (et partent vers les autres téléphones)', () async {
+      final (c, repo, fabrique) = await controleurDeTest(horloge: () => maintenant);
+      await c.changerStatut('a', Statut.nonConcerne);
+      await c.changerStatut('b', Statut.achete);
+      await c.basculerMemo('a', Memo.chien);
+      final envoyes = <Changement>[];
+      c.surChangementsLocaux = envoyes.addAll;
+
+      maintenant = DateTime.utc(2027, 11, 10);
+      await c.nouvelleCampagne(2027);
+
+      expect(c.statutDe('a'), Statut.nonConcerne);
+      expect(c.etatDe('a')!.modifieLe, DateTime.utc(2027, 11, 10));
+      expect(c.statutDe('b'), Statut.nonVisite);
+      expect(c.memosDe('a'), {Memo.chien});
+      expect(c.avancement.total, 2); // 3 maisons − 1 non concernée
+      expect(c.statutPrecedent('a'), (annee: 2026, statut: Statut.nonConcerne));
+      expect(envoyes, [
+        Changement.statut(parcelleId: 'a', campagne: 2027, statut: Statut.nonConcerne, t: maintenant.millisecondsSinceEpoch),
+      ]);
+
+      // Toujours là après redémarrage.
+      await repo.fermer();
+      final c2 = TourneeController(repo: await TourneeRepository.ouvrir(fabrique), jeu: jeuDeTest());
+      await c2.charger();
+      expect(c2.statutDe('a'), Statut.nonConcerne);
+      expect(c2.statutDe('b'), Statut.nonVisite);
     });
 
     test('seules les 2 dernières campagnes sont gardées', () async {

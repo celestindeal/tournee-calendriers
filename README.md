@@ -46,7 +46,7 @@ La carte montre les **5 776 parcelles cadastrales bâties** des 6 communes. Les 
 | **Filtre** | Sous le compteur | Toutes / Non visitées / À repasser : la carte n'affiche que les parcelles choisies. |
 | **Listes** | Icône ☷ à côté du menu | « À repasser » et « Non visitées », par commune et par rue, avec date, mémos et itinéraire. Toucher une maison la montre sur la carte. |
 | **Recherche** | Loupe à côté des listes | Taper un numéro, une rue ou une commune (« 12 prevert », « eglise fouillouse »), sans se soucier des accents. Toucher une adresse la montre sur la carte. Le texte tapé n'est pas enregistré. |
-| **Nouvelle campagne** | Menu ☰ → Campagne | Une campagne par année : exporter, puis commencer l'année suivante. Toutes les maisons repassent en « non visité » ; l'ancienne campagne reste consultable (« En 2026 : acheté ») ; les mémos sont gardés. Seules les 2 dernières campagnes sont conservées. |
+| **Nouvelle campagne** | Menu ☰ → Campagne | Une campagne par année : exporter, puis commencer l'année suivante. Les maisons repassent en « non visité », sauf les « non concerné » qui le restent ; l'ancienne campagne reste consultable (« En 2026 : acheté ») ; les mémos sont gardés. Seules les 2 dernières campagnes sont conservées. |
 | **Me localiser** | Bouton rond en bas à droite | Point bleu à votre position. Le GPS n'est demandé qu'à l'appui, et se coupe quand l'app passe en arrière-plan. |
 | **Exporter la tournée** | Menu ☰ | Crée un fichier de sauvegarde, à enregistrer dans Fichiers ou iCloud Drive. La date du dernier export s'affiche, en rouge s'il date de plus de 2 jours. |
 | **Importer une sauvegarde** | Menu ☰ | Remplace les statuts par ceux d'un fichier, après confirmation. |

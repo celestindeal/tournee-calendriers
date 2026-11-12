@@ -6,8 +6,8 @@ import 'export_tournee.dart';
 import 'formats.dart';
 
 /// Nouvelle campagne (F11) : 1. exporter la campagne en cours, 2. choisir
-/// l'année et commencer. La campagne en cours est archivée, toutes les
-/// maisons repassent en « non visité », les mémos sont gardés.
+/// l'année et commencer. La campagne en cours est archivée, les maisons
+/// repassent en « non visité » sauf les « non concerné » ; les mémos sont gardés.
 class NouvelleCampagnePage extends StatefulWidget {
   const NouvelleCampagnePage({super.key, required this.controller});
 
@@ -42,7 +42,7 @@ class _NouvelleCampagnePageState extends State<NouvelleCampagnePage> {
           if (!_exporteIci)
             'Attention : la campagne $_anneeActuelle n\'a pas été exportée depuis cette page. '
                 'Sans export, son seul souvenir sera l\'archive dans ce téléphone.',
-          'Toutes les maisons repasseront en « non visité ». '
+          'Les maisons repasseront en « non visité », sauf les « non concerné » qui le restent. '
               'La campagne $_anneeActuelle reste consultable (« En $_anneeActuelle : … »). '
               'Les mémos sont gardés.',
         ].join('\n\n')),
@@ -90,8 +90,8 @@ class _NouvelleCampagnePageState extends State<NouvelleCampagnePage> {
           const SizedBox(height: 8),
           Text(
             'Commencer une nouvelle campagne archive celle-ci (statut final de chaque maison, '
-            'consultable l\'an prochain), puis remet toutes les maisons à « non visité ». '
-            'Les mémos (chien, plutôt le soir…) sont gardés. '
+            'consultable l\'an prochain), puis remet les maisons à « non visité ». '
+            'Les maisons « non concerné » (garage, local vide…) et les mémos (chien, plutôt le soir…) sont gardés. '
             'Seules les ${TourneeController.campagnesArchiveesGardees} dernières campagnes sont conservées.',
           ),
           const SizedBox(height: 24),

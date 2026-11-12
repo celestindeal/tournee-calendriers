@@ -294,7 +294,8 @@ class TourneeController extends ChangeNotifier {
 
   /// Termine la campagne en cours et en commence une nouvelle pour [annee] :
   /// les statuts sont archivés (consultables : « en 2026 : acheté »), puis
-  /// toutes les maisons repassent en « non visité ». Les mémos sont gardés.
+  /// les maisons repassent en « non visité », sauf les « non concerné » (garage,
+  /// local vide…) qui le restent. Les mémos sont gardés.
   /// Seules les [campagnesArchiveesGardees] dernières archives sont conservées.
   Future<void> nouvelleCampagne(int annee) async {
     final actuelle = _campagne;
@@ -319,15 +320,24 @@ class TourneeController extends ChangeNotifier {
     }
     archives = archives.take(campagnesArchiveesGardees).toList();
 
-    await _repo.remplacerTout(const []);
+    // Les maisons « non concerné » (garage, local vide…) le restent d'une
+    // année sur l'autre : pas besoin de les refaire. Tout le reste repart à zéro.
+    final gardes = [
+      for (final e in _etats.values)
+        if (e.statut == Statut.nonConcerne)
+          EtatParcelle(parcelleId: e.parcelleId, statut: Statut.nonConcerne, modifieLe: maintenant),
+    ];
+    await _repo.remplacerTout(gardes);
     // La copie d'avant import concerne l'ancienne campagne : on ne doit plus pouvoir la restaurer.
     await _repo.effacerSauvegardeAvantImport();
     _campagne = Campagne(debut: maintenant, versionCarte: jeu.version, annee: annee);
     await _repo.enregistrerCampagne(_campagne!);
 
     _archives = archives;
-    _remplacerEnMemoire(const []);
+    _remplacerEnMemoire(gardes);
     _peutAnnulerImport = false;
+    // Partagés avec les autres téléphones pour la nouvelle campagne.
+    _signaler([for (final e in gardes) _changementStatut(e)]);
     notifyListeners();
   }
 
