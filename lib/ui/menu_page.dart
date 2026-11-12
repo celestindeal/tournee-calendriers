@@ -157,10 +157,33 @@ class MenuPage extends StatelessWidget {
           final campagne = controller.campagne;
           final nbARepasser = controller.avancement.aRepasser;
           final nbNonVisitees = controller.jeu.parcelles
-              .where((p) => controller.statutDe(p.id) == Statut.nonVisite)
+              .where((p) => controller.statutDe(p.id) == Statut.nonVisite && controller.estDansMaTournee(p.id))
               .length;
           return ListView(
             children: [
+              if (controller.secteurs.isNotEmpty) ...[
+                const _Titre('Ma tournée'),
+                for (final s in [null, ...controller.secteurs])
+                  ListTile(
+                    key: Key('ma-tournee-${s?.numero ?? 'aucune'}'),
+                    leading: Icon(
+                      s == controller.maTournee ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                      color: s == controller.maTournee ? theme.colorScheme.primary : null,
+                    ),
+                    title: Text(s?.nom ?? 'Toute la carte'),
+                    subtitle: Text(
+                      s == null
+                          ? 'Toutes les maisons, sans tournée mise en avant'
+                          : '${controller.nbMaisonsDe(s)} maisons · les autres restent modifiables',
+                    ),
+                    onTap: () {
+                      controller.choisirMaTournee(s);
+                      // Retour direct sur la carte, cadrée sur la tournée.
+                      Navigator.pop(context);
+                    },
+                  ),
+                const Divider(),
+              ],
               const _Titre('Maisons'),
               ListTile(
                 key: const Key('menu-a-repasser'),

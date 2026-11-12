@@ -24,7 +24,15 @@ class CoucheParcelles extends StatefulWidget {
 }
 
 /// Polygones déjà construits pour une parcelle, avec le statut qu'ils affichent.
-typedef _Dessin = ({Statut statut, List<Polygon<String>> terrain, List<Polygon<String>> batiments});
+typedef _Dessin = ({
+  Statut statut,
+  bool estompe,
+  List<Polygon<String>> terrain,
+  List<Polygon<String>> batiments,
+});
+
+/// Couleur du contour de « ma tournée ».
+const couleurTournee = Color(0xFF6A1B9A);
 
 class _CoucheParcellesState extends State<CoucheParcelles> {
   final LayerHitNotifier<String> _toucher = ValueNotifier(null);
@@ -58,20 +66,25 @@ class _CoucheParcellesState extends State<CoucheParcelles> {
 
   _Dessin _dessinDe(Parcelle p) {
     final statut = widget.controller.statutDe(p.id);
+    // Maison hors de ma tournée : estompée (toujours touchable).
+    final estompe = !widget.controller.estDansMaTournee(p.id);
     final enCache = _cache[p.id];
-    if (enCache != null && enCache.statut == statut) return enCache;
+    if (enCache != null && enCache.statut == statut && enCache.estompe == estompe) return enCache;
     final nonVisite = statut == Statut.nonVisite;
     final dessin = (
       statut: statut,
+      estompe: estompe,
       // Terrain : simple contour gris fin tant que rien n'est fait (carte lisible),
       // rempli de la couleur du statut ensuite.
       terrain: [
         for (final contour in p.contours)
           Polygon<String>(
             points: contour,
-            color: nonVisite ? null : statut.couleur.withValues(alpha: 0.35),
-            borderColor: nonVisite ? const Color(0x99757575) : statut.couleur,
-            borderStrokeWidth: nonVisite ? 1 : 2,
+            color: nonVisite ? null : statut.couleur.withValues(alpha: estompe ? 0.12 : 0.35),
+            borderColor: nonVisite
+                ? Color(estompe ? 0x40757575 : 0x99757575)
+                : statut.couleur.withValues(alpha: estompe ? 0.35 : 1),
+            borderStrokeWidth: nonVisite || estompe ? 1 : 2,
             strokeCap: StrokeCap.butt,
             strokeJoin: StrokeJoin.miter,
           ),
@@ -83,9 +96,13 @@ class _CoucheParcellesState extends State<CoucheParcelles> {
           Polygon<String>(
             points: contour,
             hitValue: p.id,
-            color: statut.couleur.withValues(alpha: nonVisite ? 0.55 : 0.9),
-            borderColor: nonVisite ? const Color(0xFF424242) : statut.couleur,
-            borderStrokeWidth: 1.5,
+            color: statut.couleur.withValues(alpha: estompe ? (nonVisite ? 0.2 : 0.35) : (nonVisite ? 0.55 : 0.9)),
+            borderColor: estompe
+                ? const Color(0x55757575)
+                : nonVisite
+                ? const Color(0xFF424242)
+                : statut.couleur,
+            borderStrokeWidth: estompe ? 1 : 1.5,
             strokeCap: StrokeCap.butt,
             strokeJoin: StrokeJoin.miter,
           ),
@@ -102,11 +119,16 @@ class _CoucheParcellesState extends State<CoucheParcelles> {
       for (final p in widget.controller.jeu.parcelles)
         if (widget.controller.estVisible(p.id)) _dessinDe(p),
     ];
+    // Vue d'ensemble : les maisons de ma tournée restent dessinées et touchables.
+    final avecTournee = widget.controller.maTournee != null;
     _terrains = [
       for (final d in dessins)
-        if (detail || d.statut != Statut.nonVisite) ...d.terrain,
+        if (detail || d.statut != Statut.nonVisite || (avecTournee && !d.estompe)) ...d.terrain,
     ];
-    _batiments = detail ? [for (final d in dessins) ...d.batiments] : const [];
+    _batiments = [
+      for (final d in dessins)
+        if (detail || (avecTournee && !d.estompe)) ...d.batiments,
+    ];
     _generationListes = _generation;
     _detailListes = detail;
   }
@@ -117,8 +139,26 @@ class _CoucheParcellesState extends State<CoucheParcelles> {
     final detail = MapCamera.of(context).zoom >= CoucheParcelles.zoomDetail;
     _mettreAJourListes(detail);
     final selection = controller.selection;
+    final maTournee = controller.maTournee;
     return Stack(
       children: [
+        // Contour de ma tournée (ne capte pas le toucher).
+        if (maTournee != null)
+          IgnorePointer(
+            child: PolygonLayer(
+              simplificationTolerance: 0,
+              polygonLabels: false,
+              polygons: [
+                for (final contour in maTournee.contours)
+                  Polygon(
+                    points: contour,
+                    color: couleurTournee.withValues(alpha: 0.04),
+                    borderColor: couleurTournee,
+                    borderStrokeWidth: 3,
+                  ),
+              ],
+            ),
+          ),
         // Les terrains ne captent pas le toucher (consigne : on touche la maison).
         IgnorePointer(
           child: PolygonLayer<String>(
@@ -127,7 +167,7 @@ class _CoucheParcellesState extends State<CoucheParcelles> {
             polygons: _terrains,
           ),
         ),
-        if (detail)
+        if (_batiments.isNotEmpty)
           GestureDetector(
             onTap: () {
               final ids = _toucher.value?.hitValues ?? const [];
@@ -139,8 +179,8 @@ class _CoucheParcellesState extends State<CoucheParcelles> {
               polygonLabels: false,
               polygons: _batiments,
             ),
-          )
-        else
+          ),
+        if (!detail && controller.maTournee == null)
           const Align(
             alignment: Alignment(0, 0.75),
             child: IgnorePointer(child: _ConseilZoom()),

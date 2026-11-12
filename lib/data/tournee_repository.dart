@@ -15,6 +15,7 @@ import '../models/statut.dart';
 /// - `etats` : id de la parcelle → `{"s": statut, "t": date en ms}`.
 ///   Absence d'enregistrement = « non visité ».
 /// - `meta`  : `"campagne"` → `{"debut", "versionBatiments", "annee"}` ;
+///   `"maTournee"` → `{"n"}` (numéro de la tournée choisie) ;
 ///   `"dernierExport"` → `{"t"}` ; `"sauvegardeAvantImport"` → `{"json"}`.
 /// - `memos` : id de la parcelle → `{"m": [noms des mémos], "t": date en ms}`.
 ///   Gardés d'une campagne à l'autre. Absence = aucun mémo.
@@ -38,6 +39,7 @@ class TourneeRepository {
   static final _versions = stringMapStoreFactory.store('synchroVersions');
   static const _cleCampagne = 'campagne';
   static const _cleDernierExport = 'dernierExport';
+  static const _cleMaTournee = 'maTournee';
   static const _cleSauvegarde = 'sauvegardeAvantImport';
   static const _cleSauvegardeParcelles = 'sauvegardeAvantParcelles';
 
@@ -100,6 +102,18 @@ class TourneeRepository {
 
   Future<void> enregistrerDernierExport(DateTime quand) async {
     await _meta.record(_cleDernierExport).put(_db, {'t': quand.millisecondsSinceEpoch});
+  }
+
+  /// Numéro de la tournée choisie sur ce téléphone (`null` = toute la carte).
+  Future<int?> lireMaTournee() async => (await _meta.record(_cleMaTournee).get(_db))?['n'] as int?;
+
+  Future<void> enregistrerMaTournee(int? numero) async {
+    final ref = _meta.record(_cleMaTournee);
+    if (numero == null) {
+      await ref.delete(_db);
+    } else {
+      await ref.put(_db, {'n': numero});
+    }
   }
 
   /// Copie de la tournée (au format d'export) faite juste avant un import,

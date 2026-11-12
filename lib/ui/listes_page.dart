@@ -26,14 +26,23 @@ class ListesPage extends StatefulWidget {
 class _ListesPageState extends State<ListesPage> {
   TourneeController get _c => widget.controller;
 
-  /// Commune affichée (`null` = toutes).
-  String? _commune;
+  /// Zone affichée : [_maTournee], un code INSEE, ou `null` (toutes les communes).
+  /// Par défaut : ma tournée si j'en ai choisi une.
+  late String? _commune = _c.maTournee == null ? null : _maTournee;
+
+  static const _maTournee = 'tournee';
 
   static const _onglets = [Statut.aRepasser, Statut.nonVisite];
 
   List<Parcelle> _parcelles(Statut statut) => [
         for (final p in _c.jeu.parcelles)
-          if (_c.statutDe(p.id) == statut && (_commune == null || p.codeInsee == _commune)) p,
+          if (_c.statutDe(p.id) == statut &&
+              switch (_commune) {
+                null => true,
+                _maTournee => _c.estDansMaTournee(p.id),
+                final insee => p.codeInsee == insee,
+              })
+            p,
       ];
 
   @override
@@ -59,7 +68,11 @@ class _ListesPageState extends State<ListesPage> {
             body: Column(
               children: [
                 _ChoixCommune(
-                  communes: [for (final c in _c.jeu.communes) (c.insee, c.nom)],
+                  communes: [
+                    if (_c.maTournee case final t?) (_maTournee, t.nom),
+                    (null, 'Toutes les communes'),
+                    for (final c in _c.jeu.communes) (c.insee, c.nom),
+                  ],
                   choisie: _commune,
                   onChoix: (insee) => setState(() => _commune = insee),
                 ),
@@ -67,7 +80,7 @@ class _ListesPageState extends State<ListesPage> {
                   child: TabBarView(
                     children: [
                       for (final (statut, liste) in [(_onglets[0], aRepasser), (_onglets[1], nonVisitees)])
-                        _Liste(controller: _c, statut: statut, parcelles: liste, afficherCommune: _commune == null),
+                        _Liste(controller: _c, statut: statut, parcelles: liste, afficherCommune: _commune == null || _commune == _maTournee),
                     ],
                   ),
                 ),
@@ -83,7 +96,8 @@ class _ListesPageState extends State<ListesPage> {
 class _ChoixCommune extends StatelessWidget {
   const _ChoixCommune({required this.communes, required this.choisie, required this.onChoix});
 
-  final List<(String, String)> communes;
+  /// (clé, nom) : la clé `null` = toutes les communes.
+  final List<(String?, String)> communes;
   final String? choisie;
   final ValueChanged<String?> onChoix;
 
@@ -94,7 +108,7 @@ class _ChoixCommune extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Row(
         children: [
-          for (final (insee, nom) in [(null, 'Toutes les communes'), ...communes])
+          for (final (insee, nom) in communes)
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(

@@ -85,6 +85,27 @@ class PanneauStatut extends StatelessWidget {
                   style: discret,
                 ),
               ),
+              // Rappel : cette maison n'est pas dans ma tournée (on peut quand même la faire).
+              if (!controller.estDansMaTournee(parcelle.id))
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, right: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 16, color: Color(0xFF6A1B9A)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          switch (controller.tourneeDe(parcelle.id)) {
+                            final n? => 'Hors de ta tournée (tournée n°$n)',
+                            null => 'Hors de ta tournée',
+                          },
+                          key: const Key('hors-tournee'),
+                          style: discret?.copyWith(color: const Color(0xFF6A1B9A), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               // Une seule ligne : statut de l'an dernier, mémos, bouton « Mémos ».
               Row(
                 children: [

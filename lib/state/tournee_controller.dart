@@ -11,6 +11,7 @@ import '../models/filtre.dart';
 import '../models/jeu_parcelles.dart';
 import '../models/memo.dart';
 import '../models/parcelle.dart';
+import '../models/secteur.dart';
 import '../models/statut.dart';
 import '../synchro/changement.dart';
 import '../synchro/synchro_controller.dart';
@@ -22,9 +23,17 @@ import 'migration.dart';
 /// dans la base. Si l'écriture échoue, l'ancien état est remis et
 /// [derniereErreur] est renseignée.
 class TourneeController extends ChangeNotifier {
-  TourneeController({required this._repo, required this.jeu, DateTime Function()? horloge})
-    : _horloge = horloge ?? DateTime.now,
-      _parId = {for (final b in jeu.parcelles) b.id: b};
+  TourneeController({
+    required this._repo,
+    required this.jeu,
+    this.secteurs = const [],
+    DateTime Function()? horloge,
+  }) : _horloge = horloge ?? DateTime.now,
+       _parId = {for (final b in jeu.parcelles) b.id: b},
+       _secteurDeParcelle = {
+         for (final p in jeu.parcelles)
+           if (secteurs.where((s) => s.contient(p.centre)).firstOrNull case final s?) p.id: s.numero,
+       };
 
   /// Nombre de campagnes terminées gardées (les plus anciennes sont effacées :
   /// on ne conserve pas l'historique des maisons indéfiniment, RGPD).
@@ -36,6 +45,12 @@ class TourneeController extends ChangeNotifier {
 
   /// Les parcelles des communes de la tournée (lecture seule).
   final JeuParcelles jeu;
+
+  /// Les tournées des pompiers (contours sur la carte), triées par numéro.
+  final List<Secteur> secteurs;
+
+  /// Numéro de la tournée de chaque parcelle (absente = hors des tournées).
+  final Map<String, int> _secteurDeParcelle;
 
   /// États enregistrés. Peut contenir des ids absents de [jeu] (ancienne version
   /// de la carte) : ils sont conservés mais pas comptés.
@@ -126,8 +141,33 @@ class TourneeController extends ChangeNotifier {
     }
     _dernierExport = await _repo.lireDernierExport();
     _peutAnnulerImport = await _repo.lireSauvegardeAvantImport() != null;
+    final numero = await _repo.lireMaTournee();
+    _maTournee = secteurs.where((s) => s.numero == numero).firstOrNull;
     notifyListeners();
   }
+
+  // --- Ma tournée (secteur affiché) -------------------------------------
+
+  /// La tournée choisie sur ce téléphone, ou `null` (toute la carte).
+  /// Sert seulement à l'affichage : on peut cocher les maisons des autres.
+  Secteur? get maTournee => _maTournee;
+  Secteur? _maTournee;
+
+  Future<void> choisirMaTournee(Secteur? secteur) async {
+    _maTournee = secteur;
+    notifyListeners();
+    await _repo.enregistrerMaTournee(secteur?.numero);
+  }
+
+  /// Numéro de la tournée de la parcelle, ou `null` si elle n'est dans aucune.
+  int? tourneeDe(String parcelleId) => _secteurDeParcelle[parcelleId];
+
+  /// Vrai si aucune tournée n'est choisie, ou si la parcelle est dans la mienne.
+  bool estDansMaTournee(String parcelleId) =>
+      _maTournee == null || _secteurDeParcelle[parcelleId] == _maTournee!.numero;
+
+  /// Nombre de maisons de chaque tournée.
+  int nbMaisonsDe(Secteur secteur) => _secteurDeParcelle.values.where((n) => n == secteur.numero).length;
 
   // --- Statuts ----------------------------------------------------------
 
@@ -148,11 +188,12 @@ class TourneeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Avancement de ma tournée (ou de toute la carte si aucune n'est choisie).
   Avancement get avancement => Avancement.calculer(
-    nbParcelles: jeu.parcelles.length,
+    nbParcelles: _maTournee == null ? jeu.parcelles.length : nbMaisonsDe(_maTournee!),
     statuts: [
       for (final e in _etats.entries)
-        if (_parId.containsKey(e.key)) e.value.statut,
+        if (_parId.containsKey(e.key) && estDansMaTournee(e.key)) e.value.statut,
     ],
   );
 

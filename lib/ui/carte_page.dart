@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../config.dart';
 import '../models/filtre.dart';
 import '../models/jeu_parcelles.dart';
+import '../models/secteur.dart';
 import '../platform/plateforme.dart';
 import '../state/position_controller.dart';
 import '../state/tournee_controller.dart';
@@ -54,6 +55,7 @@ class _CartePageState extends State<CartePage> {
   void initState() {
     super.initState();
     _controller.addListener(_afficherErreur);
+    _controller.addListener(_surChangementDeTournee);
     _position.addListener(_surPosition);
     // GPS coupé en arrière-plan (batterie), relancé au retour (ARCHITECTURE §7.6).
     _cycleDeVie = AppLifecycleListener(
@@ -69,6 +71,7 @@ class _CartePageState extends State<CartePage> {
   @override
   void dispose() {
     _controller.removeListener(_afficherErreur);
+    _controller.removeListener(_surChangementDeTournee);
     _position.removeListener(_surPosition);
     _cycleDeVie.dispose();
     _carte.dispose();
@@ -81,6 +84,22 @@ class _CartePageState extends State<CartePage> {
       backgroundColor: erreur ? Theme.of(context).colorScheme.error : null,
     ));
   }
+
+  /// Tournée affichée au dernier passage (pour recentrer quand elle change).
+  late Secteur? _tourneeAffichee = _controller.maTournee;
+
+  void _surChangementDeTournee() {
+    final t = _controller.maTournee;
+    if (identical(t, _tourneeAffichee)) return;
+    _tourneeAffichee = t;
+    if (t != null) _carte.fitCamera(_cadrage(t));
+  }
+
+  /// Cadre la carte sur toute la tournée.
+  static CameraFit _cadrage(Secteur t) => CameraFit.bounds(
+    bounds: LatLngBounds(t.emprise.sudOuest, t.emprise.nordEst),
+    padding: const EdgeInsets.fromLTRB(24, 110, 24, 40),
+  );
 
   void _afficherErreur() {
     final message = _controller.derniereErreur;
@@ -150,6 +169,8 @@ class _CartePageState extends State<CartePage> {
               // autres communes en déplaçant la carte (ou avec « Me localiser »).
               initialCenter: _centreDepart(jeu),
               initialZoom: 15,
+              // Avec une tournée choisie : la carte s'ouvre dessus.
+              initialCameraFit: _controller.maTournee == null ? null : _cadrage(_controller.maTournee!),
               cameraConstraint: CameraConstraint.containCenter(bounds: emprise),
               minZoom: 12,
               maxZoom: 19,

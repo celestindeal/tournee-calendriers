@@ -6,6 +6,7 @@ import 'package:sembast_web/sembast_web.dart';
 import 'app.dart';
 import 'config.dart';
 import 'data/parcelles_source.dart';
+import 'data/secteurs_source.dart';
 import 'data/tournee_repository.dart';
 import 'journal.dart';
 import 'platform/gps.dart';
@@ -43,7 +44,9 @@ Future<TourneeController> _demarrer() async {
   // IndexedDB du navigateur (sur l'iPhone : propre à l'app de l'écran d'accueil).
   // Base séparée pour l'environnement de test (voir config.dart).
   final repo = await TourneeRepository.ouvrir(databaseFactoryWeb, nom: nomBase);
-  final controller = TourneeController(repo: repo, jeu: jeu);
+  // Contours des tournées des pompiers (assets/data/tournees.json).
+  final secteurs = await SecteursSource().charger();
+  final controller = TourneeController(repo: repo, jeu: jeu, secteurs: secteurs);
   await controller.charger();
   // Synchronisation entre téléphones, intégrée à l'app quand GitHub la construit
   // avec l'adresse du serveur et la clé (voir config.dart).

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/filtre.dart';
 import '../models/statut.dart';
 import '../state/tournee_controller.dart';
+import 'couche_parcelles.dart' show couleurTournee;
 import 'synchro_page.dart';
 
 /// Barre fine en haut de la carte : compteur « 132 / 480 faits (27 %) »,
@@ -69,6 +70,18 @@ class BarreAvancement extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         children: [
+                          // Le compteur porte sur ma tournée quand j'en ai choisi une.
+                          if (controller.maTournee case final t?) ...[
+                            Text(
+                              'Tournée ${t.numero}',
+                              key: const Key('compteur-tournee'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: couleurTournee,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           Expanded(
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(3),
