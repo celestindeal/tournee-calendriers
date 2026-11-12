@@ -40,6 +40,7 @@ class TourneeRepository {
   static const _cleCampagne = 'campagne';
   static const _cleDernierExport = 'dernierExport';
   static const _cleMaTournee = 'maTournee';
+  static const _cleToutesTournees = 'toutesTournees';
   static const _cleSauvegarde = 'sauvegardeAvantImport';
   static const _cleSauvegardeParcelles = 'sauvegardeAvantParcelles';
 
@@ -106,6 +107,12 @@ class TourneeRepository {
 
   /// Numéro de la tournée choisie sur ce téléphone (`null` = toute la carte).
   Future<int?> lireMaTournee() async => (await _meta.record(_cleMaTournee).get(_db))?['n'] as int?;
+
+  /// Afficher les contours de toutes les tournées sur la carte.
+  Future<bool> lireToutesLesTournees() async => (await _meta.record(_cleToutesTournees).get(_db))?['v'] == true;
+
+  Future<void> enregistrerToutesLesTournees(bool afficher) =>
+      _meta.record(_cleToutesTournees).put(_db, {'v': afficher});
 
   Future<void> enregistrerMaTournee(int? numero) async {
     final ref = _meta.record(_cleMaTournee);

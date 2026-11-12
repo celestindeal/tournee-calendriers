@@ -11,6 +11,7 @@ import 'package:tournee_calendriers/models/secteur.dart';
 import 'package:tournee_calendriers/models/statut.dart';
 import 'package:tournee_calendriers/state/tournee_controller.dart';
 import 'package:tournee_calendriers/ui/listes_page.dart';
+import 'package:tournee_calendriers/ui/menu_page.dart';
 import 'package:tournee_calendriers/ui/panneau_statut.dart';
 
 import '../../tool/preparer_tournees.dart' show lireKml;
@@ -143,6 +144,45 @@ void main() {
       expect(find.text('Hors de ta tournée (tournée n°3)'), findsOneWidget);
       await afficher('c');
       expect(find.text('Hors de ta tournée'), findsOneWidget);
+    });
+
+    test('« Afficher toutes les tournées » est gardé sur le téléphone', () async {
+      expect(controller.toutesLesTournees, isFalse);
+      await controller.afficherToutesLesTournees(true);
+      expect(controller.toutesLesTournees, isTrue);
+      expect((await ouvrir()).toutesLesTournees, isTrue);
+      await controller.afficherToutesLesTournees(false);
+      expect((await ouvrir()).toutesLesTournees, isFalse);
+    });
+
+    testWidgets('l\'interrupteur du menu affiche toutes les tournées', (tester) async {
+      tester.view.physicalSize = const Size(800, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(builder: (_) => MenuPage(controller: controller, plateforme: PlateformeDeTest())),
+              ),
+              child: const Text('ouvrir'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('ouvrir'));
+      await tester.pumpAndSettle();
+      expect(find.text('Contours et numéros des 2 tournées sur la carte'), findsOneWidget);
+      await tester.runAsync(() async {
+        await tester.tap(find.byKey(const Key('toutes-les-tournees')));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await tester.pumpAndSettle();
+      expect(controller.toutesLesTournees, isTrue);
+      // Retour sur la carte.
+      expect(find.text('ouvrir'), findsOneWidget);
     });
 
     testWidgets('les listes montrent ma tournée par défaut', (tester) async {

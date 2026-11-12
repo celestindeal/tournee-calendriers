@@ -143,6 +143,7 @@ class TourneeController extends ChangeNotifier {
     _peutAnnulerImport = await _repo.lireSauvegardeAvantImport() != null;
     final numero = await _repo.lireMaTournee();
     _maTournee = secteurs.where((s) => s.numero == numero).firstOrNull;
+    _toutesLesTournees = await _repo.lireToutesLesTournees();
     notifyListeners();
   }
 
@@ -157,6 +158,18 @@ class TourneeController extends ChangeNotifier {
     _maTournee = secteur;
     notifyListeners();
     await _repo.enregistrerMaTournee(secteur?.numero);
+  }
+
+  /// Contours et numéros de toutes les tournées affichés sur la carte
+  /// (choix gardé sur ce téléphone).
+  bool get toutesLesTournees => _toutesLesTournees;
+  bool _toutesLesTournees = false;
+
+  Future<void> afficherToutesLesTournees(bool afficher) async {
+    if (afficher == _toutesLesTournees) return;
+    _toutesLesTournees = afficher;
+    notifyListeners();
+    await _repo.enregistrerToutesLesTournees(afficher);
   }
 
   /// Numéro de la tournée de la parcelle, ou `null` si elle n'est dans aucune.

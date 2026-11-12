@@ -87,7 +87,24 @@ class _CartePageState extends State<CartePage> {
   /// Tournée affichée au dernier passage (pour recentrer quand elle change).
   late Secteur? _tourneeAffichee = _controller.maTournee;
 
+  /// « Toutes les tournées » affiché au dernier passage.
+  late bool _toutesAffichees = _controller.toutesLesTournees;
+
   void _surChangementDeTournee() {
+    // « Afficher toutes les tournées » vient d'être activé : on voit tout le découpage.
+    if (_controller.toutesLesTournees != _toutesAffichees) {
+      _toutesAffichees = _controller.toutesLesTournees;
+      final secteurs = _controller.secteurs;
+      if (_toutesAffichees && secteurs.isNotEmpty) {
+        final points = [
+          for (final s in secteurs) ...[s.emprise.sudOuest, s.emprise.nordEst],
+        ];
+        _carte.fitCamera(CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(points),
+          padding: const EdgeInsets.fromLTRB(16, 100, 16, 30),
+        ));
+      }
+    }
     final t = _controller.maTournee;
     if (identical(t, _tourneeAffichee)) return;
     _tourneeAffichee = t;

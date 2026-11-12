@@ -34,6 +34,24 @@ typedef _Dessin = ({
 /// Couleur du contour de « ma tournée ».
 const couleurTournee = Color(0xFF6A1B9A);
 
+/// Couleurs des tournées quand on les affiche toutes (distinctes des couleurs
+/// de statut : vert, orange, rouge, bleu, gris).
+const _couleursSecteurs = [
+  Color(0xFF00838F), // bleu canard
+  Color(0xFF8E24AA), // violet
+  Color(0xFF6D4C41), // brun
+  Color(0xFFD81B60), // rose
+  Color(0xFF3949AB), // indigo
+  Color(0xFF827717), // olive
+  Color(0xFF00897B), // sarcelle
+  Color(0xFFAD1457), // framboise
+  Color(0xFF5E35B1), // pourpre
+  Color(0xFF455A64), // ardoise
+  Color(0xFF9E9D24), // kaki
+];
+
+Color _couleurSecteur(int i) => _couleursSecteurs[i % _couleursSecteurs.length];
+
 class _CoucheParcellesState extends State<CoucheParcelles> {
   final LayerHitNotifier<String> _toucher = ValueNotifier(null);
 
@@ -142,6 +160,33 @@ class _CoucheParcellesState extends State<CoucheParcelles> {
     final maTournee = controller.maTournee;
     return Stack(
       children: [
+        // Toutes les tournées : contour coloré et numéro au milieu (ne capte pas le toucher).
+        if (controller.toutesLesTournees && controller.secteurs.isNotEmpty)
+          IgnorePointer(
+            child: PolygonLayer(
+              simplificationTolerance: 0,
+              polygonLabels: true,
+              polygons: [
+                for (final (i, s) in controller.secteurs.indexed)
+                  for (final contour in s.contours)
+                    Polygon(
+                      points: contour,
+                      color: _couleurSecteur(i).withValues(alpha: 0.06),
+                      borderColor: _couleurSecteur(i),
+                      borderStrokeWidth: 2,
+                      label: '${s.numero}',
+                      labelPlacementCalculator: const PolygonLabelPlacementCalculator.polylabel(),
+                      labelStyle: TextStyle(
+                        fontFamily: 'Roboto', // embarquée : rien à télécharger, même hors-ligne
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: _couleurSecteur(i),
+                        shadows: const [Shadow(color: Colors.white, blurRadius: 4)],
+                      ),
+                    ),
+              ],
+            ),
+          ),
         // Contour de ma tournée (ne capte pas le toucher).
         if (maTournee != null)
           IgnorePointer(
