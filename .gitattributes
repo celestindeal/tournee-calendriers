@@ -1,0 +1,3 @@
+# Scripts exécutés sous Linux (module Home Assistant) : fins de ligne Unix.
+*.sh text eol=lf
+serveur/Dockerfile text eol=lf

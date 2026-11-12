@@ -1,0 +1,6 @@
+# Dépôt de modules Home Assistant : le serveur de synchronisation de l'app
+# (dossier serveur/). Dans Home Assistant : Apps → Boutique → ⋮ → Dépôts,
+# ajouter https://github.com/celestindeal/tournee-calendriers#test
+name: Tournée calendriers
+url: https://github.com/celestindeal/tournee-calendriers
+maintainer: celestindeal

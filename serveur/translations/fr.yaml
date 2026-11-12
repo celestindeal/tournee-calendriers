@@ -1,0 +1,13 @@
+configuration:
+  code_equipe:
+    name: Code d'équipe
+    description: >-
+      Le code que chaque membre saisit dans l'app (Menu → Synchronisation).
+      12 caractères minimum : lettres, chiffres et tirets, par exemple sapin-falaise-4821-brume.
+  nom_tailscale:
+    name: Nom du serveur sur Tailscale
+    description: Donne le début de l'adresse publique (https://serveur-pompier.xxxx.ts.net).
+  cle_tailscale:
+    name: Clé d'authentification Tailscale (facultative)
+    description: >-
+      Inutile en général : au premier démarrage, un lien de connexion s'affiche dans le journal.
