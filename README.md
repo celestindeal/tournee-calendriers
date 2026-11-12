@@ -186,6 +186,10 @@ dart run tool/preparer_donnees.dart --insee 42234,42010,42206,42100,42096,42097
 - Le test [test/data/parcelles_source_test.dart](test/data/parcelles_source_test.dart) vérifie le nombre de parcelles par commune et la version du fichier : il faut le mettre à jour après une regénération.
 - ⚠️ À faire **entre deux campagnes** : les identifiants des parcelles sont officiels et stables, mais une parcelle découpée ou fusionnée par le cadastre perd son statut.
 
+### Ajouter ou modifier une tournée
+
+Les contours des tournées (Menu → **Ma tournée**) se trouvent dans le fichier [assets/data/tournees.json](assets/data/tournees.json). Ce fichier est **généré** à partir d'un export KML de Google My Maps. Le pas-à-pas complet se trouve dans le tuto [docs/AJOUTER_UNE_TOURNEE.md](docs/AJOUTER_UNE_TOURNEE.md).
+
 ### Réglages GitHub (déjà faits, pour mémoire)
 
 - **Settings → Pages** : source « GitHub Actions ».
