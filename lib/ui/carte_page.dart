@@ -10,6 +10,7 @@ import '../models/filtre.dart';
 import '../models/jeu_parcelles.dart';
 import '../models/secteur.dart';
 import '../platform/plateforme.dart';
+import '../platform/systeme.dart';
 import '../state/position_controller.dart';
 import '../state/tournee_controller.dart';
 import 'barre_avancement.dart';
@@ -23,12 +24,7 @@ import 'recherche_page.dart';
 /// Écran principal : carte, compteur en haut, panneau de statut en bas,
 /// bouton « Me localiser ».
 class CartePage extends StatefulWidget {
-  const CartePage({
-    super.key,
-    required this.controller,
-    required this.position,
-    required this.plateforme,
-  });
+  const CartePage({super.key, required this.controller, required this.position, required this.plateforme});
 
   final TourneeController controller;
   final PositionController position;
@@ -54,6 +50,10 @@ class _CartePageState extends State<CartePage> {
   @override
   void initState() {
     super.initState();
+    // Android : l'invitation à installer l'app peut arriver après l'ouverture.
+    widget.plateforme.surChangementInstallation(() {
+      if (mounted) setState(() {});
+    });
     _controller.addListener(_afficherErreur);
     _controller.addListener(_surChangementDeTournee);
     _position.addListener(_surPosition);
@@ -79,10 +79,9 @@ class _CartePageState extends State<CartePage> {
   }
 
   void _signaler(String message, {bool erreur = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(message),
-      backgroundColor: erreur ? Theme.of(context).colorScheme.error : null,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: erreur ? Theme.of(context).colorScheme.error : null),
+    );
   }
 
   /// Tournée affichée au dernier passage (pour recentrer quand elle change).
@@ -100,6 +99,18 @@ class _CartePageState extends State<CartePage> {
     bounds: LatLngBounds(t.emprise.sudOuest, t.emprise.nordEst),
     padding: const EdgeInsets.fromLTRB(24, 110, 24, 40),
   );
+
+  /// Fenêtre d'installation de Chrome (Android).
+  Future<void> _installer() async {
+    final accepte = await widget.plateforme.installer();
+    if (!mounted) return;
+    if (accepte) {
+      setState(() => _conseilVisible = false);
+      _signaler('App installée : ouvrez-la désormais depuis son icône.');
+    } else {
+      setState(() {});
+    }
+  }
 
   void _afficherErreur() {
     final message = _controller.derniereErreur;
@@ -158,121 +169,130 @@ class _CartePageState extends State<CartePage> {
     final jeu = _controller.jeu;
     final emprise = LatLngBounds(jeu.sudOuest, jeu.nordEst);
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _carte,
-            options: MapOptions(
-              // Vue de départ : le bourg de la première commune (Saint-Héand),
-              // assez zoomée pour voir et toucher les maisons. On rejoint les
-              // autres communes en déplaçant la carte (ou avec « Me localiser »).
-              initialCenter: _centreDepart(jeu),
-              initialZoom: 15,
-              // Avec une tournée choisie : la carte s'ouvre dessus.
-              initialCameraFit: _controller.maTournee == null ? null : _cadrage(_controller.maTournee!),
-              cameraConstraint: CameraConstraint.containCenter(bounds: emprise),
-              minZoom: 12,
-              maxZoom: 19,
-              // Fond neutre quand les tuiles ne se chargent pas (hors-ligne).
-              backgroundColor: const Color(0xFFEDEDED),
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+    // Bouton « retour » d'Android : ferme d'abord le panneau de la maison.
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, enfant) => PopScope(
+        canPop: _controller.selection == null,
+        onPopInvokedWithResult: (aQuitte, _) {
+          if (!aQuitte) _controller.selectionner(null);
+        },
+        child: enfant!,
+      ),
+      child: Scaffold(
+        body: Stack(
+          children: [
+            FlutterMap(
+              mapController: _carte,
+              options: MapOptions(
+                // Vue de départ : le bourg de la première commune (Saint-Héand),
+                // assez zoomée pour voir et toucher les maisons. On rejoint les
+                // autres communes en déplaçant la carte (ou avec « Me localiser »).
+                initialCenter: _centreDepart(jeu),
+                initialZoom: 15,
+                // Avec une tournée choisie : la carte s'ouvre dessus.
+                initialCameraFit: _controller.maTournee == null ? null : _cadrage(_controller.maTournee!),
+                cameraConstraint: CameraConstraint.containCenter(bounds: emprise),
+                minZoom: 12,
+                maxZoom: 19,
+                // Fond neutre quand les tuiles ne se chargent pas (hors-ligne).
+                backgroundColor: const Color(0xFFEDEDED),
+                interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
+                // Toucher à côté des bâtiments : ferme le panneau.
+                onTap: (_, _) => _controller.selectionner(null),
               ),
-              // Toucher à côté des bâtiments : ferme le panneau.
-              onTap: (_, _) => _controller.selectionner(null),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'fr.amicale.tournee_calendriers',
-                maxNativeZoom: 19,
-                keepBuffer: 1,
-                panBuffer: 0,
-              ),
-              CoucheParcelles(controller: _controller),
-              CouchePosition(position: _position),
-              RichAttributionWidget(
-                alignment: AttributionAlignment.bottomLeft,
-                attributions: [
-                  const TextSourceAttribution('Contributeurs OpenStreetMap'),
-                  for (final source in jeu.sources) TextSourceAttribution(source),
-                ],
-              ),
-            ],
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              minimum: const EdgeInsets.all(8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  BarreAvancement(
-                    controller: _controller,
-                    onMenu: _ouvrirMenu,
-                    onRecherche: _ouvrirRecherche,
-                    estTest: !estProduction,
-                  ),
-                  IndicateurFiltre(controller: _controller),
-                  if (_conseilVisible) ...[
-                    const SizedBox(height: 8),
-                    ConseilInstallation(onFermer: () => setState(() => _conseilVisible = false)),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'fr.amicale.tournee_calendriers',
+                  maxNativeZoom: 19,
+                  keepBuffer: 1,
+                  panBuffer: 0,
+                ),
+                CoucheParcelles(controller: _controller),
+                CouchePosition(position: _position),
+                RichAttributionWidget(
+                  alignment: AttributionAlignment.bottomLeft,
+                  attributions: [
+                    const TextSourceAttribution('Contributeurs OpenStreetMap'),
+                    for (final source in jeu.sources) TextSourceAttribution(source),
                   ],
-                ],
+                ),
+              ],
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: SafeArea(
+                minimum: const EdgeInsets.all(8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    BarreAvancement(
+                      controller: _controller,
+                      onMenu: _ouvrirMenu,
+                      onRecherche: _ouvrirRecherche,
+                      estTest: !estProduction,
+                    ),
+                    IndicateurFiltre(controller: _controller),
+                    if (_conseilVisible) ...[
+                      const SizedBox(height: 8),
+                      ConseilInstallation(
+                        systeme: systemeCourant,
+                        onFermer: () => setState(() => _conseilVisible = false),
+                        onInstaller: widget.plateforme.peutInstaller ? _installer : null,
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
-          ),
-          // Bouton « Me localiser », caché quand le panneau de statut est ouvert.
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: SafeArea(
-              top: false,
+            // Bouton « Me localiser », caché quand le panneau de statut est ouvert.
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: SafeArea(
+                top: false,
+                child: ListenableBuilder(
+                  listenable: Listenable.merge([_controller, _position]),
+                  builder: (context, _) {
+                    if (_controller.selection != null) return const SizedBox.shrink();
+                    return FloatingActionButton(
+                      key: const Key('bouton-gps'),
+                      tooltip: 'Me localiser',
+                      onPressed: _meLocaliser,
+                      child: _IconeGps(_position.etat),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
               child: ListenableBuilder(
-                listenable: Listenable.merge([_controller, _position]),
+                listenable: _controller,
                 builder: (context, _) {
-                  if (_controller.selection != null) return const SizedBox.shrink();
-                  return FloatingActionButton(
-                    key: const Key('bouton-gps'),
-                    tooltip: 'Me localiser',
-                    onPressed: _meLocaliser,
-                    child: _IconeGps(_position.etat),
+                  final selection = _controller.selection;
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    // Le panneau glisse depuis le bas de l'écran.
+                    transitionBuilder: (child, animation) => SlideTransition(
+                      position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(animation),
+                      child: child,
+                    ),
+                    child: selection == null
+                        ? const SizedBox.shrink()
+                        : PanneauStatut(key: ValueKey(selection.id), controller: _controller, parcelle: selection),
                   );
                 },
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: ListenableBuilder(
-              listenable: _controller,
-              builder: (context, _) {
-                final selection = _controller.selection;
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 150),
-                  // Le panneau glisse depuis le bas de l'écran.
-                  transitionBuilder: (child, animation) => SlideTransition(
-                    position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(animation),
-                    child: child,
-                  ),
-                  child: selection == null
-                      ? const SizedBox.shrink()
-                      : PanneauStatut(
-                          key: ValueKey(selection.id),
-                          controller: _controller,
-                          parcelle: selection,
-                        ),
-                );
-              },
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -299,13 +319,10 @@ class _IconeGps extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => switch (etat) {
-        EtatGps.arrete => const Icon(Icons.location_searching),
-        EtatGps.recherche => const SizedBox.square(
-            dimension: 22,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
-        EtatGps.actif => const Icon(Icons.my_location),
-        EtatGps.refuse => const Icon(Icons.location_disabled),
-        EtatGps.indisponible => const Icon(Icons.gps_not_fixed),
-      };
+    EtatGps.arrete => const Icon(Icons.location_searching),
+    EtatGps.recherche => const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+    EtatGps.actif => const Icon(Icons.my_location),
+    EtatGps.refuse => const Icon(Icons.location_disabled),
+    EtatGps.indisponible => const Icon(Icons.gps_not_fixed),
+  };
 }

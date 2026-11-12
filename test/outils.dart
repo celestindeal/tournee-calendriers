@@ -68,6 +68,32 @@ class PlateformeDeTest implements Plateforme {
 
   @override
   Future<String> serviceWorker() async => 'actif · app-test : 27';
+
+  /// Invitation d'installation simulée (Chrome sur Android).
+  @override
+  bool peutInstaller = false;
+
+  /// Réponse simulée de l'utilisateur à la fenêtre d'installation.
+  bool accepteInstallation = true;
+  int nbInstallations = 0;
+  void Function()? _rappel;
+
+  @override
+  Future<bool> installer() async {
+    nbInstallations++;
+    peutInstaller = false;
+    _rappel?.call();
+    return accepteInstallation;
+  }
+
+  @override
+  void surChangementInstallation(void Function() rappel) => _rappel = rappel;
+
+  /// Simule l'arrivée de l'invitation du navigateur.
+  void recevoirInvitation() {
+    peutInstaller = true;
+    _rappel?.call();
+  }
 }
 
 extension CopieJeu on JeuParcelles {

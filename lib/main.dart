@@ -11,6 +11,7 @@ import 'data/tournee_repository.dart';
 import 'journal.dart';
 import 'platform/gps.dart';
 import 'platform/navigateur.dart';
+import 'platform/systeme.dart';
 import 'state/position_controller.dart';
 import 'state/tournee_controller.dart';
 import 'synchro/serveur_synchro.dart';
@@ -27,10 +28,14 @@ void main() {
     return false;
   };
 
+  final plateforme = PlateformeNavigateur();
+  // iPhone ou Android : adapte les explications et les choix proposés.
+  systemeCourant = Systeme.detecter(plateforme.navigateur);
+
   runApp(
     TourneeApp(
       demarrer: _demarrer,
-      plateforme: PlateformeNavigateur(),
+      plateforme: plateforme,
       position: PositionController(source: fluxGeolocator),
     ),
   );

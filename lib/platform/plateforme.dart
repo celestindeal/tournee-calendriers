@@ -13,6 +13,16 @@ abstract interface class Plateforme {
 
   /// État du service worker et de ses caches, en une ligne lisible.
   Future<String> serviceWorker();
+
+  /// Le navigateur (Chrome sur Android) peut installer l'app d'un toucher.
+  bool get peutInstaller;
+
+  /// Ouvre la fenêtre d'installation du navigateur. Renvoie vrai si
+  /// l'utilisateur a accepté.
+  Future<bool> installer();
+
+  /// Appelé quand [peutInstaller] change (invitation reçue, app installée).
+  void surChangementInstallation(void Function() rappel);
 }
 
 /// Version de l'app : identifiant du commit, fourni au build par le

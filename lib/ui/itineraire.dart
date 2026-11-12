@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../journal.dart';
+import '../platform/systeme.dart';
 
 /// Applications de navigation proposées pour aller jusqu'à une maison.
 enum AppliNavigation {
@@ -12,6 +13,12 @@ enum AppliNavigation {
 
   const AppliNavigation(this.libelle);
   final String libelle;
+
+  /// Applications proposées : Plans d'Apple n'existe pas sur Android.
+  static List<AppliNavigation> pour(Systeme systeme) => switch (systeme) {
+    Systeme.android => const [googleMaps, waze],
+    _ => values,
+  };
 
   /// Lien d'itinéraire vers [destination]. Sur iPhone, ces liens ouvrent
   /// l'application correspondante si elle est installée (Plans l'est toujours),
@@ -27,7 +34,7 @@ enum AppliNavigation {
   }
 }
 
-/// Bouton « itinéraire » : propose Plans, Google Maps ou Waze.
+/// Bouton « itinéraire » : propose Plans (iPhone), Google Maps ou Waze.
 class BoutonItineraire extends StatelessWidget {
   const BoutonItineraire({super.key, required this.destination, this.titre});
 
@@ -52,7 +59,7 @@ class BoutonItineraire extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
             ),
-            for (final a in AppliNavigation.values)
+            for (final a in AppliNavigation.pour(systemeCourant))
               ListTile(
                 key: Key('itineraire-${a.name}'),
                 leading: const Icon(Icons.navigation_outlined),

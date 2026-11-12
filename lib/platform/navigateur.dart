@@ -23,6 +23,19 @@ class PlateformeNavigateur implements Plateforme {
   }
 
   @override
+  bool get peutInstaller => InstallationNavigateur.peutInstaller();
+
+  @override
+  Future<bool> installer() => InstallationNavigateur.installer();
+
+  @override
+  void surChangementInstallation(void Function() rappel) {
+    try {
+      web.window.addEventListener('invitation-installation', ((web.Event _) => rappel()).toJS);
+    } catch (_) {}
+  }
+
+  @override
   Future<bool> stockagePersistant() async {
     try {
       return (await web.window.navigator.storage.persisted().toDart).toDart;
@@ -47,6 +60,46 @@ class PlateformeNavigateur implements Plateforme {
       return morceaux.join(' · ');
     } catch (e) {
       return 'inconnu ($e)';
+    }
+  }
+}
+
+/// Invitation à installer l'app gardée par web/index.html (Chrome, Android).
+extension type _Invitation(JSObject _) implements JSObject {
+  external JSPromise<JSAny?> prompt();
+  external JSPromise<_Choix> get userChoice;
+}
+
+extension type _Choix(JSObject _) implements JSObject {
+  external String get outcome;
+}
+
+@JS('invitationInstallation')
+external _Invitation? get _invitation;
+
+@JS('invitationInstallation')
+external set _invitation(_Invitation? valeur);
+
+extension InstallationNavigateur on PlateformeNavigateur {
+  static bool peutInstaller() {
+    try {
+      return _invitation != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<bool> installer() async {
+    final invitation = _invitation;
+    if (invitation == null) return false;
+    try {
+      await invitation.prompt().toDart;
+      final choix = await invitation.userChoice.toDart;
+      // Une invitation ne sert qu'une fois.
+      _invitation = null;
+      return choix.outcome == 'accepted';
+    } catch (_) {
+      return false;
     }
   }
 }

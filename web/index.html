@@ -48,6 +48,19 @@
     <div class="rond"></div>
     <div>Chargement de la carte…</div>
   </div>
+  <script>
+    // Android (Chrome) : le navigateur propose d'installer l'app avant que
+    // Flutter soit chargé. On garde son invitation pour le bouton « Installer ».
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.invitationInstallation = e;
+      window.dispatchEvent(new Event('invitation-installation'));
+    });
+    window.addEventListener('appinstalled', function () {
+      window.invitationInstallation = null;
+      window.dispatchEvent(new Event('invitation-installation'));
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

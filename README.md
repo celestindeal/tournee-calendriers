@@ -1,6 +1,6 @@
 # Tournée calendriers – amicale des pompiers
 
-Application web installable sur iPhone pour suivre la **tournée des calendriers des pompiers**. On touche une maison sur la carte, toute sa parcelle prend une couleur, et l'on voit d'un coup d'œil ce qui est fait et ce qui reste à faire.
+Application web installable sur iPhone et sur Android pour suivre la **tournée des calendriers des pompiers**. On touche une maison sur la carte, toute sa parcelle prend une couleur, et l'on voit d'un coup d'œil ce qui est fait et ce qui reste à faire.
 
 **Communes couvertes** (Loire) : Saint-Héand (42234), Aveizieux (42010), Saint-Bonnet-les-Oules (42206), La Gimond (42100), Fontanès (42096), La Fouillouse (42097).
 
@@ -9,8 +9,8 @@ Application web installable sur iPhone pour suivre la **tournée des calendriers
 | **Production** | https://celestindeal.github.io/tournee-calendriers/ | L'app utilisée pendant la tournée |
 | **Test** | https://celestindeal.github.io/tournee-calendriers/test/ | Les essais, avant la mise en production |
 
-- **0 €** : pas de serveur, pas d'abonnement, pas de compte développeur Apple.
-- **Toutes les données restent sur le téléphone.** Rien n'est envoyé sur Internet.
+- **0 €** : pas d'hébergement payant, pas d'abonnement, pas de compte développeur Apple ou Google.
+- **Les téléphones se synchronisent entre eux** par le serveur de l'équipe : un module Home Assistant sur une Raspberry Pi (voir [serveur/LISEZMOI.md](serveur/LISEZMOI.md)). Seuls l'identifiant de chaque maison, son statut, ses mémos et leur date y sont envoyés. Chaque téléphone garde sa copie et marche sans réseau.
 - Documents de référence : le cahier des charges (Google Doc dans le dossier du projet) et l'architecture technique détaillée ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
 
 ---
@@ -59,8 +59,11 @@ Après une première ouverture avec du réseau, l'app **fonctionne sans réseau*
 
 ### Où sont les données ?
 
-- Les statuts sont enregistrés **immédiatement**, à chaque toucher, dans le stockage du navigateur de l'iPhone (IndexedDB).
-- ⚠️ L'app doit être **installée sur l'écran d'accueil** (Safari → Partager → « Sur l'écran d'accueil ») et **toujours ouverte depuis son icône**. Un onglet Safari a un stockage séparé, que iOS peut effacer. Un encadré jaune le rappelle si l'app est ouverte dans un onglet.
+- Les statuts sont enregistrés **immédiatement**, à chaque toucher, dans le stockage du navigateur du téléphone (IndexedDB), puis envoyés au serveur de l'équipe dès qu'il y a du réseau.
+- L'app s'**installe sur l'écran d'accueil**. Un encadré jaune le rappelle tant qu'elle est ouverte dans un onglet du navigateur.
+  - **iPhone** : dans **Safari**, Partager → « Sur l'écran d'accueil ». Ouvrez-la ensuite **toujours depuis son icône** : un onglet Safari a un stockage séparé, que iOS peut effacer.
+  - **Android** : dans **Chrome**, touchez le bouton **« Installer »** de l'encadré jaune, ou passez par le menu ⋮ → « Installer l'application » (ou « Ajouter à l'écran d'accueil »). L'app et Chrome partagent les mêmes données.
+- Ce qui change sur Android : le bouton « Itinéraire » propose Google Maps et Waze (pas Plans d'Apple), et le bouton **retour** ferme d'abord le panneau de la maison.
 - ⚠️ **Supprimer l'icône efface toutes les données.** Pendant la tournée, faites un **export chaque soir**.
 - Seuls sont enregistrés l'identifiant de la parcelle, son statut, la date, et les mémos cochés. Pas de nom, pas de texte libre (RGPD). Les statuts des campagnes passées ne sont gardés que pour les 2 dernières années.
 

@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart' show LocationServiceDisabledExceptio
 import 'package:latlong2/latlong.dart';
 
 import '../journal.dart';
+import '../platform/systeme.dart';
 
 /// Une position GPS et sa précision (rayon en mètres).
 class PositionGps {
@@ -98,13 +99,24 @@ class PositionController extends ChangeNotifier {
       _couper();
       _position = null;
       _etat = EtatGps.refuse;
-      _message = 'Localisation refusée. Pour l\'autoriser : Réglages › Confidentialité et sécurité › '
-          'Service de localisation › Sites web Safari.';
+      _message = switch (systemeCourant) {
+        Systeme.android =>
+          'Localisation refusée. Pour l\'autoriser : Chrome › menu ⋮ › Paramètres › '
+              'Paramètres des sites › Position.',
+        Systeme.ios =>
+          'Localisation refusée. Pour l\'autoriser : Réglages › Confidentialité et sécurité › '
+              'Service de localisation › Sites web Safari.',
+        Systeme.autre => 'Localisation refusée. Autorisez-la dans les réglages du navigateur.',
+      };
     } else if (erreur is LocationServiceDisabledException) {
       _couper();
       _position = null;
       _etat = EtatGps.indisponible;
-      _message = 'Le service de localisation de l\'iPhone est désactivé.';
+      _message = switch (systemeCourant) {
+        Systeme.android => 'La localisation du téléphone est désactivée (Paramètres › Position).',
+        Systeme.ios => 'Le service de localisation de l\'iPhone est désactivé.',
+        Systeme.autre => 'La localisation de l\'appareil est désactivée.',
+      };
     } else {
       // Signal faible ou délai dépassé : on continue d'écouter.
       if (_position == null) {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart' show PermissionDeniedException;
 import 'package:latlong2/latlong.dart';
+import 'package:tournee_calendriers/platform/systeme.dart';
 import 'package:tournee_calendriers/state/position_controller.dart';
 
 void main() {
@@ -41,7 +42,9 @@ void main() {
     expect(abonnements, 1);
   });
 
-  test('refus : arrêt du suivi et message expliquant les Réglages', () async {
+  test('refus : arrêt du suivi et message expliquant les Réglages (iPhone)', () async {
+    systemeCourant = Systeme.ios;
+    addTearDown(() => systemeCourant = Systeme.autre);
     gps.demarrer();
     flux.addError(const PermissionDeniedException('refusé'));
     await pumpEventQueue();
