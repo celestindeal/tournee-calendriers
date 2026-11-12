@@ -17,9 +17,9 @@ import '../outils.dart';
 /// serveur/pb_migrations/1794400000_tournee.js : code d'équipe obligatoire,
 /// mise à jour seulement si plus récente, rien n'est supprimé.
 class FauxPocketBase {
-  FauxPocketBase({this.code = 'code-equipe-123'});
+  FauxPocketBase({this.cle = 'code-equipe-123'});
 
-  final String code;
+  final String cle;
   final tables = <String, Map<String, Map<String, Object?>>>{};
   bool enPanne = false;
   int _horloge = 0;
@@ -30,7 +30,7 @@ class FauxPocketBase {
   http.Client client() => MockClient((requete) async {
         if (enPanne) throw http.ClientException('réseau coupé');
         requetes.add('${requete.method} ${requete.url.path}');
-        final codeOk = requete.headers['X-Code-Equipe'] == code;
+        final codeOk = requete.headers['X-Cle-Synchro'] == cle;
         final morceaux = requete.url.pathSegments; // api, collections, <table>, records, [id]
         final table = morceaux[2];
         final id = morceaux.length > 4 ? morceaux[4] : null;
@@ -97,7 +97,7 @@ class Telephone {
       attenteApresModif: const Duration(days: 1),
       fabriqueServeur: (c) => ServeurPocketBase(
         adresse: c.adresse,
-        code: c.code,
+        cle: c.cle,
         prefixeTables: prefixe,
         appareil: c.appareil,
         client: serveur.client(),
@@ -107,7 +107,7 @@ class Telephone {
     return Telephone._(tournee, repo, synchro);
   }
 
-  Future<void> brancher() => synchro.configurer(adresse: 'serveur-pompier.exemple.ts.net/', code: 'code-equipe-123');
+  Future<void> brancher() => synchro.configurer(adresse: 'serveur-pompier.exemple.ts.net/', cle: 'code-equipe-123');
 }
 
 void main() {
@@ -226,7 +226,7 @@ void main() {
       intervalle: const Duration(days: 1),
       fabriqueServeur: (c) => ServeurPocketBase(
         adresse: c.adresse,
-        code: c.code,
+        cle: c.cle,
         prefixeTables: '',
         appareil: c.appareil,
         client: serveur.client(),
@@ -241,10 +241,10 @@ void main() {
     synchro2.dispose();
   });
 
-  test('mauvais code : refusé avec un message clair', () async {
+  test('mauvaise clé : refusé avec un message clair', () async {
     final a = await Telephone.creer(serveur, horloge);
     await expectLater(
-      a.synchro.configurer(adresse: 'serveur-pompier.exemple.ts.net', code: 'mauvais-code-000'),
+      a.synchro.configurer(adresse: 'serveur-pompier.exemple.ts.net', cle: 'mauvais-code-000'),
       throwsA(isA<ErreurSynchro>().having((e) => e.message, 'message', 'Code d\'équipe refusé.')),
     );
     expect(a.synchro.active, isFalse);
@@ -267,6 +267,48 @@ void main() {
     expect(a.synchro.active, isFalse);
     expect(a.synchro.nbEnAttente, 0);
     expect(a.tournee.statutDe('a'), Statut.achete);
+  });
+
+  test('synchro intégrée à l\'app : branchée d\'office, même sans réseau, sans repartir de zéro', () async {
+    final (tournee, repo, _) = await controleurDeTest(horloge: horloge);
+    await tournee.changerStatut('a', Statut.achete);
+    SynchroController nouvelle() => SynchroController(
+          repo: repo,
+          tournee: tournee,
+          horloge: horloge,
+          intervalle: const Duration(days: 1),
+          attenteApresModif: const Duration(days: 1),
+          fabriqueServeur: (c) => ServeurPocketBase(
+            adresse: c.adresse,
+            cle: c.cle,
+            prefixeTables: '',
+            appareil: c.appareil,
+            client: serveur.client(),
+          ),
+        );
+    const integree = (adresse: 'serveur-pompier.exemple.ts.net', cle: 'code-equipe-123');
+
+    serveur.enPanne = true;
+    final s1 = nouvelle();
+    await s1.charger(integree: integree);
+    await s1.synchroniser();
+    expect(s1.integree, isTrue);
+    expect(s1.active, isTrue);
+    expect(s1.etat, EtatSynchro.horsLigne);
+    expect(s1.nbEnAttente, 1);
+    final appareil = s1.config!.appareil;
+    s1.dispose();
+
+    // Relance de l'app, réseau revenu : même téléphone, la file est reprise.
+    serveur.enPanne = false;
+    final s2 = nouvelle();
+    await s2.charger(integree: integree);
+    await s2.synchroniser();
+    expect(s2.config!.appareil, appareil);
+    expect(s2.nbEnAttente, 0);
+    expect(s2.etat, EtatSynchro.aJour);
+    expect(serveur.tables['statuts']!.values.single['statut'], 'achete');
+    s2.dispose();
   });
 
   group('identifiants sur le serveur', () {

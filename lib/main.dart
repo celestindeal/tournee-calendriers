@@ -45,18 +45,19 @@ Future<TourneeController> _demarrer() async {
   final repo = await TourneeRepository.ouvrir(databaseFactoryWeb, nom: nomBase);
   final controller = TourneeController(repo: repo, jeu: jeu);
   await controller.charger();
-  // Synchronisation entre téléphones (si une adresse de serveur est réglée).
+  // Synchronisation entre téléphones, intégrée à l'app quand GitHub la construit
+  // avec l'adresse du serveur et la clé (voir config.dart).
   // Tables séparées pour l'environnement de test.
   final synchro = SynchroController(
     repo: repo,
     tournee: controller,
     fabriqueServeur: (c) => ServeurPocketBase(
       adresse: c.adresse,
-      code: c.code,
+      cle: c.cle,
       prefixeTables: estProduction ? '' : 'test_',
       appareil: c.appareil,
     ),
   );
-  await synchro.charger();
+  await synchro.charger(integree: synchroIntegree ? (adresse: synchroAdresse, cle: synchroCle) : null);
   return controller;
 }

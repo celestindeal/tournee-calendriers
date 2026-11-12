@@ -4,17 +4,17 @@
 //
 // À chaque démarrage :
 // 1. crée les tables si elles n'existent pas encore ;
-// 2. les ouvre aux téléphones qui envoient le code d'équipe (en-tête
-//    « X-Code-Equipe »), lu dans la variable d'environnement CODE_EQUIPE.
-//    Le code n'est jamais écrit dans ce dépôt public. Changer le code =
+// 2. les ouvre aux téléphones qui envoient la clé de synchronisation (en-tête
+//    « X-Cle-Synchro »), lu dans la variable d'environnement CLE_SYNCHRO.
+//    La clé n'est jamais écrite dans ce dépôt public. Changer la clé =
 //    changer la variable et redémarrer.
 //
 // Pour chaque environnement (production « », test « test_ ») :
 //   statuts : un enregistrement par maison (statut de la campagne en cours) ;
 //   memos   : un enregistrement par maison.
 // Règles :
-// - lecture et création : avec le bon code ;
-// - modification : avec le bon code, et seulement si elle est plus récente
+// - lecture et création : avec la bonne clé ;
+// - modification : avec la bonne clé, et seulement si elle est plus récente
 //   (champ t) que celle enregistrée : la plus récente gagne ;
 // - suppression : jamais depuis les téléphones.
 
@@ -22,11 +22,11 @@ onBootstrap((e) => {
   e.next();
   const app = e.app;
 
-  const code = $os.getenv("CODE_EQUIPE");
-  if (!/^[A-Za-z0-9-]{12,}$/.test(code || "")) {
-    throw new Error("CODE_EQUIPE manquant ou trop court (12 caractères minimum : lettres, chiffres, tirets).");
+  const cle = $os.getenv("CLE_SYNCHRO");
+  if (!/^[A-Za-z0-9-]{12,}$/.test(cle || "")) {
+    throw new Error("CLE_SYNCHRO manquant ou trop court (12 caractères minimum : lettres, chiffres, tirets).");
   }
-  const acces = `@request.headers.x_code_equipe = "${code}"`;
+  const acces = `@request.headers.x_cle_synchro = "${cle}"`;
 
   const existe = (nom) => {
     try {
@@ -73,7 +73,7 @@ onBootstrap((e) => {
     }
   }
 
-  // Sert à vérifier le code d'équipe : sa liste n'est visible qu'avec le bon code.
+  // Sert à vérifier la clé de synchronisation : sa liste n'est visible qu'avec la bonne clé.
   if (!existe("acces")) {
     const collection = new Collection({ type: "base", name: "acces", fields: [{ name: "nom", type: "text", max: 40 }] });
     app.save(collection);
@@ -102,5 +102,5 @@ onBootstrap((e) => {
   collection.viewRule = acces;
   app.save(collection);
 
-  console.log("Tournée : tables prêtes, code d'équipe appliqué.");
+  console.log("Tournée : tables prêtes, clé de synchronisation appliqué.");
 });

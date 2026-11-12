@@ -43,7 +43,7 @@ abstract class ServeurSynchro {
 class ServeurPocketBase implements ServeurSynchro {
   ServeurPocketBase({
     required String adresse,
-    required this.code,
+    required this.cle,
     required this.prefixeTables,
     required this.appareil,
     http.Client? client,
@@ -52,7 +52,7 @@ class ServeurPocketBase implements ServeurSynchro {
        _client = client ?? http.Client();
 
   final String adresse;
-  final String code;
+  final String cle;
 
   /// '' en production, 'test_' pour l'environnement de test.
   final String prefixeTables;
@@ -74,7 +74,7 @@ class ServeurPocketBase implements ServeurSynchro {
     return a;
   }
 
-  Map<String, String> get _entetes => {'X-Code-Equipe': code, 'Content-Type': 'application/json'};
+  Map<String, String> get _entetes => {'X-Cle-Synchro': cle, 'Content-Type': 'application/json'};
 
   String _table(TypeChangement type) => '$prefixeTables${type == TypeChangement.statut ? 'statuts' : 'memos'}';
 

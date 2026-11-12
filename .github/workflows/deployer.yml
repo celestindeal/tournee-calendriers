@@ -54,22 +54,32 @@ jobs:
 
       # --no-web-resources-cdn : moteur de rendu servi par l'app (hors-ligne, ARCHITECTURE §7.2)
       # VERSION_APP : identifiant court du commit, affiché dans la page Diagnostic
+      # SYNCHRO_ADRESSE (variable du dépôt) et SYNCHRO_CLE (secret) : serveur de
+      # synchronisation intégré à l'app (vides = pas de synchronisation)
       - name: Construire la production
         working-directory: prod
+        env:
+          SYNCHRO_ADRESSE: ${{ vars.SYNCHRO_ADRESSE }}
+          SYNCHRO_CLE: ${{ secrets.SYNCHRO_CLE }}
         run: |
           flutter pub get
           flutter build web --release --no-web-resources-cdn --no-wasm-dry-run \
             --base-href /tournee-calendriers/ \
-            --dart-define=ENV=prod --dart-define=VERSION_APP=$(git rev-parse --short=7 HEAD)
+            --dart-define=ENV=prod --dart-define=VERSION_APP=$(git rev-parse --short=7 HEAD) \
+            --dart-define=SYNCHRO_ADRESSE="$SYNCHRO_ADRESSE" --dart-define=SYNCHRO_CLE="$SYNCHRO_CLE"
           dart run tool/generer_sw.dart --environnement prod
 
       - name: Construire le test
         working-directory: test
+        env:
+          SYNCHRO_ADRESSE: ${{ vars.SYNCHRO_ADRESSE }}
+          SYNCHRO_CLE: ${{ secrets.SYNCHRO_CLE }}
         run: |
           flutter pub get
           flutter build web --release --no-web-resources-cdn --no-wasm-dry-run \
             --base-href /tournee-calendriers/test/ \
-            --dart-define=ENV=test --dart-define=VERSION_APP=$(git rev-parse --short=7 HEAD)
+            --dart-define=ENV=test --dart-define=VERSION_APP=$(git rev-parse --short=7 HEAD) \
+            --dart-define=SYNCHRO_ADRESSE="$SYNCHRO_ADRESSE" --dart-define=SYNCHRO_CLE="$SYNCHRO_CLE"
           dart run tool/generer_sw.dart --environnement test
 
       - name: Assembler le site (production + test/)

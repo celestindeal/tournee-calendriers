@@ -1,9 +1,9 @@
 configuration:
-  code_equipe:
-    name: Code d'équipe
+  cle_synchro:
+    name: Clé de synchronisation
     description: >-
-      Le code que chaque membre saisit dans l'app (Menu → Synchronisation).
-      12 caractères minimum : lettres, chiffres et tirets, par exemple sapin-falaise-4821-brume.
+      La même clé que le secret SYNCHRO_CLE du dépôt GitHub (intégrée à l'app : personne n'a rien à taper).
+      12 caractères minimum : lettres, chiffres et tirets.
   nom_tailscale:
     name: Nom du serveur sur Tailscale
     description: Donne le début de l'adresse publique (https://serveur-pompier.xxxx.ts.net).

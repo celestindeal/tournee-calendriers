@@ -2,7 +2,7 @@
 //
 // Lancer un serveur local avec serveur/pb_hooks, puis :
 //   flutter test test/synchro/serveur_reel_test.dart \
-//     --dart-define=POCKETBASE=http://127.0.0.1:8090 --dart-define=CODE=essai-local-123456
+//     --dart-define=POCKETBASE=http://127.0.0.1:8090 --dart-define=CLE=essai-local-123456
 @Tags(['serveur'])
 library;
 
@@ -17,7 +17,7 @@ import 'package:tournee_calendriers/synchro/synchro_controller.dart';
 import '../outils.dart';
 
 const _adresse = String.fromEnvironment('POCKETBASE');
-const _code = String.fromEnvironment('CODE');
+const _code = String.fromEnvironment('CLE');
 
 Future<(TourneeController, SynchroController)> _telephone(DateTime Function() horloge, String prefixe) async {
   final (tournee, repo, _) = await controleurDeTest(horloge: horloge);
@@ -29,7 +29,7 @@ Future<(TourneeController, SynchroController)> _telephone(DateTime Function() ho
     attenteApresModif: const Duration(days: 1),
     fabriqueServeur: (c) => ServeurPocketBase(
       adresse: c.adresse,
-      code: c.code,
+      cle: c.cle,
       prefixeTables: prefixe,
       appareil: c.appareil,
       client: http.Client(),
@@ -53,11 +53,11 @@ void main() {
     await tourneeB.nouvelleCampagne(campagneEssai);
 
     await expectLater(
-      synchroA.configurer(adresse: _adresse, code: 'mauvais-code-0000'),
+      synchroA.configurer(adresse: _adresse, cle: 'mauvais-code-0000'),
       throwsA(isA<ErreurSynchro>()),
     );
-    await synchroA.configurer(adresse: _adresse, code: _code);
-    await synchroB.configurer(adresse: _adresse, code: _code);
+    await synchroA.configurer(adresse: _adresse, cle: _code);
+    await synchroB.configurer(adresse: _adresse, cle: _code);
     expect(synchroA.etat, EtatSynchro.aJour, reason: synchroA.message);
 
     await tourneeA.changerStatut('a', Statut.achete);

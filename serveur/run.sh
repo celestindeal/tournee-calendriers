@@ -4,12 +4,12 @@
 set -eu
 
 OPTIONS=/data/options.json
-CODE=$(jq -r '.code_equipe // ""' "$OPTIONS")
+CLE_SYNCHRO_OPTION=$(jq -r '.cle_synchro // ""' "$OPTIONS")
 NOM=$(jq -r '.nom_tailscale // "serveur-pompier"' "$OPTIONS")
 CLE=$(jq -r '.cle_tailscale // ""' "$OPTIONS")
 
-if ! echo "$CODE" | grep -Eq '^[A-Za-z0-9-]{12,}$'; then
-  echo "[tournée] ERREUR : réglez un code d'équipe (onglet Configuration) :"
+if ! echo "$CLE_SYNCHRO_OPTION" | grep -Eq '^[A-Za-z0-9-]{12,}$'; then
+  echo "[tournée] ERREUR : réglez une clé de synchronisation (onglet Configuration) :"
   echo "[tournée] 12 caractères minimum, lettres, chiffres et tirets."
   exit 1
 fi
@@ -19,7 +19,7 @@ SOCKET=/var/run/tailscale/tailscaled.sock
 TS="tailscale --socket=$SOCKET"
 
 echo "[tournée] Démarrage du serveur PocketBase…"
-CODE_EQUIPE="$CODE" /opt/pocketbase/pocketbase serve \
+CLE_SYNCHRO="$CLE_SYNCHRO_OPTION" /opt/pocketbase/pocketbase serve \
   --http=127.0.0.1:8090 \
   --dir=/data/pb_data \
   --hooksDir=/opt/pocketbase/pb_hooks \

@@ -23,20 +23,20 @@ enum EtatSynchro {
 
 /// Réglages saisis par l'utilisateur.
 class ConfigSynchro {
-  const ConfigSynchro({required this.adresse, required this.code, required this.appareil});
+  const ConfigSynchro({required this.adresse, required this.cle, required this.appareil});
 
   final String adresse;
-  final String code;
+  final String cle;
 
   /// Identifiant aléatoire de ce téléphone (rien de personnel).
   final String appareil;
 
-  Map<String, Object?> versJson() => {'adresse': adresse, 'code': code, 'appareil': appareil};
+  Map<String, Object?> versJson() => {'adresse': adresse, 'cle': cle, 'appareil': appareil};
 
   static ConfigSynchro? depuisJson(Map<String, Object?>? json) {
-    final a = json?['adresse'], c = json?['code'], ap = json?['appareil'];
+    final a = json?['adresse'], c = json?['cle'], ap = json?['appareil'];
     if (a is! String || c is! String || ap is! String) return null;
-    return ConfigSynchro(adresse: a, code: c, appareil: ap);
+    return ConfigSynchro(adresse: a, cle: c, appareil: ap);
   }
 }
 
@@ -88,8 +88,16 @@ class SynchroController extends ChangeNotifier {
   DateTime? get dernierSucces => _dernierSucces;
   int get nbEnAttente => _attente.length;
 
-  /// Lit les réglages et la file d'attente ; démarre si la synchro est configurée.
-  Future<void> charger() async {
+  /// Synchronisation intégrée à l'app (adresse et clé fournies à la
+  /// construction) : rien à régler sur le téléphone.
+  bool get integree => _integree;
+  bool _integree = false;
+
+  /// Lit les réglages et la file d'attente ; démarre si la synchro est
+  /// configurée. Avec [integree] (adresse et clé intégrées à l'app), la
+  /// synchronisation est branchée d'office, même sans réseau.
+  Future<void> charger({({String adresse, String cle})? integree}) async {
+    _integree = integree != null;
     _tournee.surChangementsLocaux = _surChangementsLocaux;
     _tournee.synchro = this;
     _config = ConfigSynchro.depuisJson(await _repo.lireReglageSynchro(_cleConfig));
@@ -104,6 +112,21 @@ class SynchroController extends ChangeNotifier {
     _versions
       ..clear()
       ..addAll(await _repo.lireVersions());
+    if (integree != null) {
+      final adresse = ServeurPocketBase.normaliserAdresse(integree.adresse);
+      if (_config?.adresse != adresse || _config?.cle != integree.cle) {
+        // Premier lancement, ou serveur changé : toute la tournée de ce
+        // téléphone sera proposée au serveur.
+        await _brancher(ConfigSynchro(
+          adresse: adresse,
+          cle: integree.cle,
+          appareil: _config?.appareil ?? _nouvelIdAppareil(),
+        ));
+        notifyListeners();
+        scheduleMicrotask(synchroniser);
+        return;
+      }
+    }
     if (_config != null) _demarrer();
     notifyListeners();
   }
@@ -112,14 +135,22 @@ class SynchroController extends ChangeNotifier {
   /// branchement, toute la tournée de ce téléphone est proposée au serveur
   /// (qui garde, maison par maison, la version la plus récente).
   /// Lève [ErreurSynchro] si le serveur refuse.
-  Future<void> configurer({required String adresse, required String code}) async {
+  Future<void> configurer({required String adresse, required String cle}) async {
     final config = ConfigSynchro(
       adresse: ServeurPocketBase.normaliserAdresse(adresse),
-      code: code.trim(),
+      cle: cle.trim(),
       appareil: _config?.appareil ?? _nouvelIdAppareil(),
     );
     final serveur = _fabriqueServeur(config);
     await serveur.verifierAcces();
+    await _brancher(config, serveur: serveur);
+    notifyListeners();
+    await synchroniser();
+  }
+
+  /// Enregistre la configuration, repart de zéro (attente, versions,
+  /// curseurs) et met toute la tournée du téléphone en attente d'envoi.
+  Future<void> _brancher(ConfigSynchro config, {ServeurSynchro? serveur}) async {
     await _arreter();
     await _repo.effacerSynchro();
     _attente.clear();
@@ -127,11 +158,9 @@ class SynchroController extends ChangeNotifier {
     _dernierSucces = null;
     await _repo.ecrireReglageSynchro(_cleConfig, config.versJson());
     _config = config;
-    _serveur = serveur;
+    _serveur = serveur ?? _fabriqueServeur(config);
     await _mettreEnAttente(_tournee.toutPourSynchro());
     _demarrer(passageImmediat: false);
-    notifyListeners();
-    await synchroniser();
   }
 
   /// Arrête la synchronisation et oublie l'adresse et le code. Les données

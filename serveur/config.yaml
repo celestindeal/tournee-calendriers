@@ -2,7 +2,7 @@
 # PocketBase garde les statuts et mémos ; Tailscale Funnel donne l'adresse
 # HTTPS publique (aucun port à ouvrir sur la box).
 name: Tournée calendriers
-version: "1.0.0"
+version: "1.0.1"
 slug: tournee_calendriers
 description: Serveur de synchronisation de l'app de la tournée des calendriers (partage entre téléphones).
 url: https://github.com/celestindeal/tournee-calendriers/tree/test/serveur
@@ -15,9 +15,9 @@ boot: auto
 # Arrêté pendant les sauvegardes de Home Assistant : la base est copiée au repos.
 backup: cold
 options:
-  code_equipe: ""
+  cle_synchro: ""
   nom_tailscale: serveur-pompier
 schema:
-  code_equipe: "match(^[A-Za-z0-9-]{12,}$)"
+  cle_synchro: "match(^[A-Za-z0-9-]{12,}$)"
   nom_tailscale: "match(^[a-z0-9-]{1,63}$)"
   cle_tailscale: "password?"
