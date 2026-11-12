@@ -65,9 +65,17 @@ void main() {
       final jeu = JeuParcelles.depuisJson(
         jsonDecode(File('assets/data/parcelles.json').readAsStringSync()) as Map<String, dynamic>,
       );
-      final dedans = jeu.parcelles.where((p) => t7.contient(p.centre)).toList();
+      // Nombre de maisons par tournée, et maisons comptées dans deux tournées
+      // (contours qui se chevauchent : la tournée au plus petit numéro l'emporte dans l'app).
+      for (final s in secteurs) {
+        final n = jeu.parcelles.where((p) => s.contient(p.centre)).length;
+        // ignore: avoid_print
+        print('${s.nom} : $n maisons');
+      }
+      final enDouble = jeu.parcelles.where((p) => secteurs.where((s) => s.contient(p.centre)).length > 1).toList();
       // ignore: avoid_print
-      print('Tournée 7 : ${dedans.length} maisons sur ${jeu.parcelles.length}');
+      print('Maisons dans deux tournées : ${enDouble.length} ${[for (final p in enDouble.take(10)) p.adresse ?? p.id]}');
+      final dedans = jeu.parcelles.where((p) => t7.contient(p.centre)).toList();
       expect(dedans.length, greaterThan(100));
       expect(dedans.length, lessThan(jeu.parcelles.length ~/ 2));
     });
