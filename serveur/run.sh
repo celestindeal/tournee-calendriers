@@ -27,7 +27,11 @@ CLE_SYNCHRO="$CLE_SYNCHRO_OPTION" /opt/pocketbase/pocketbase serve \
 PB=$!
 
 echo "[tournée] Démarrage de Tailscale…"
-tailscaled --tun=userspace-networking --statedir=/data/tailscale --socket="$SOCKET" >/dev/null 2>&1 &
+# Journal de Tailscale : seules les lignes utiles (certificat HTTPS, Funnel,
+# erreurs) sont recopiées dans le journal du module.
+tailscaled --tun=userspace-networking --statedir=/data/tailscale --socket="$SOCKET" 2>&1 \
+  | grep --line-buffered -iE "cert|acme|funnel|serve|tls|error|fail|denied" \
+  | sed -u 's/^/[tailscale] /' &
 for _ in $(seq 1 30); do
   [ -S "$SOCKET" ] && break
   sleep 1

@@ -8,7 +8,7 @@ ARG POCKETBASE_VERSION=0.40.6
 ARG POCKETBASE_SHA256_ARM64=d22c66ceb67ca92b7d767f36d826e848a276bcfa3c197ead20bf87c42208984f
 ARG POCKETBASE_SHA256_AMD64=0e1f609158ed945f809f8a02ae012aa0427129c66ebb63c1aee76f2c0309373f
 
-RUN apk add --no-cache ca-certificates jq tailscale unzip \
+RUN apk add --no-cache ca-certificates grep jq sed tailscale unzip \
  && case "${BUILD_ARCH}" in \
       aarch64) ARCHI=arm64; EMPREINTE="${POCKETBASE_SHA256_ARM64}" ;; \
       amd64) ARCHI=amd64; EMPREINTE="${POCKETBASE_SHA256_AMD64}" ;; \
