@@ -50,6 +50,9 @@ class _CartePageState extends State<CartePage> {
   @override
   void initState() {
     super.initState();
+    // Valeurs de départ, lues tout de suite (pour reconnaître ensuite un changement).
+    _tourneeAffichee = _controller.maTournee;
+    _toutesAffichees = _controller.toutesLesTournees;
     // Android : l'invitation à installer l'app peut arriver après l'ouverture.
     widget.plateforme.surChangementInstallation(() {
       if (mounted) setState(() {});
@@ -85,10 +88,10 @@ class _CartePageState extends State<CartePage> {
   }
 
   /// Tournée affichée au dernier passage (pour recentrer quand elle change).
-  late Secteur? _tourneeAffichee = _controller.maTournee;
+  Secteur? _tourneeAffichee;
 
   /// « Toutes les tournées » affiché au dernier passage.
-  late bool _toutesAffichees = _controller.toutesLesTournees;
+  bool _toutesAffichees = false;
 
   void _surChangementDeTournee() {
     // « Afficher toutes les tournées » vient d'être activé : on voit tout le découpage.

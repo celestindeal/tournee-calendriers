@@ -163,6 +163,18 @@ class MenuPage extends StatelessWidget {
             children: [
               if (controller.secteurs.isNotEmpty) ...[
                 const _Titre('Ma tournée'),
+                SwitchListTile(
+                  key: const Key('toutes-les-tournees'),
+                  secondary: const Icon(Icons.layers_outlined),
+                  title: const Text('Afficher toutes les tournées'),
+                  subtitle: Text('Contours et numéros des ${controller.secteurs.length} tournées sur la carte'),
+                  value: controller.toutesLesTournees,
+                  onChanged: (afficher) {
+                    controller.afficherToutesLesTournees(afficher);
+                    // Retour direct sur la carte pour voir le découpage.
+                    if (afficher) Navigator.pop(context);
+                  },
+                ),
                 for (final s in [null, ...controller.secteurs])
                   ListTile(
                     key: Key('ma-tournee-${s?.numero ?? 'aucune'}'),
@@ -182,18 +194,6 @@ class MenuPage extends StatelessWidget {
                       Navigator.pop(context);
                     },
                   ),
-                SwitchListTile(
-                  key: const Key('toutes-les-tournees'),
-                  secondary: const Icon(Icons.layers_outlined),
-                  title: const Text('Afficher toutes les tournées'),
-                  subtitle: Text('Contours et numéros des ${controller.secteurs.length} tournées sur la carte'),
-                  value: controller.toutesLesTournees,
-                  onChanged: (afficher) {
-                    controller.afficherToutesLesTournees(afficher);
-                    // Retour direct sur la carte pour voir le découpage.
-                    if (afficher) Navigator.pop(context);
-                  },
-                ),
                 const Divider(),
               ],
               const _Titre('Maisons'),
