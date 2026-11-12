@@ -2,7 +2,7 @@
 
 Ce module permet à tous les téléphones de partager la tournée. Chaque téléphone envoie ses maisons au serveur et reçoit celles des autres. Pour une même maison, la modification la plus récente gagne.
 
-Sur les téléphones, il n'y a rien à régler : l'adresse du serveur et la clé de synchronisation sont intégrées à l'app quand GitHub la construit (secrets `SYNCHRO_ADRESSE` et `SYNCHRO_CLE` du dépôt).
+Sur les téléphones, il n'y a rien à régler : l'adresse du serveur et la clé de synchronisation sont intégrées à l'app quand GitHub la construit (variable `SYNCHRO_ADRESSE` et secret `SYNCHRO_CLE` du dépôt).
 
 ## Mise en route
 
@@ -10,7 +10,8 @@ Sur les téléphones, il n'y a rien à régler : l'adresse du serveur et la clé
 2. Démarrez le module, puis ouvrez l'onglet **Journal**.
 3. Au premier démarrage, un lien `https://login.tailscale.com/…` s'affiche. Ouvrez-le et connectez-vous à Tailscale : un compte gratuit suffit, avec Google, Microsoft ou GitHub.
 4. Si un deuxième lien s'affiche pour **Funnel**, ouvrez-le et acceptez. Funnel rend le serveur joignable depuis Internet, en HTTPS.
-5. Le journal affiche ensuite l'adresse du serveur, par exemple `https://serveur-pompier.tail1234.ts.net`. Enregistrez-la dans le secret `SYNCHRO_ADRESSE` du dépôt GitHub.
+   Ensuite, **redémarrez le module** : sans cela, Tailscale ne fournit pas le certificat HTTPS et l'adresse ne répond pas.
+5. Le journal affiche ensuite l'adresse du serveur, par exemple `https://serveur-pompier.tail1234.ts.net`. Enregistrez-la dans la variable `SYNCHRO_ADRESSE` du dépôt GitHub.
 
 ## Bon à savoir
 
