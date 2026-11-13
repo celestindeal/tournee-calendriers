@@ -11,6 +11,7 @@ Application web installable sur iPhone et sur Android pour suivre la **tournée 
 
 - **0 €** : pas d'hébergement payant, pas d'abonnement, pas de compte développeur Apple ou Google.
 - **Les téléphones se synchronisent entre eux** par le serveur de l'équipe : un module Home Assistant sur une Raspberry Pi (voir [serveur/LISEZMOI.md](serveur/LISEZMOI.md)). Seuls l'identifiant de chaque maison, son statut, ses mémos et leur date y sont envoyés. Chaque téléphone garde sa copie et marche sans réseau.
+- **Pour reprendre le projet** : [docs/REPRISE.md](docs/REPRISE.md) (état, adresses, à faire).
 - **Mode d'emploi imprimable** pour les membres de la caserne : [docs/guide/Guide_Tournee_Calendriers.pdf](docs/guide/Guide_Tournee_Calendriers.pdf). Pour le régénérer : `dart run tool/guide_pdf.dart` (captures dans `docs/guide/captures/`).
 - Documents de référence : le cahier des charges (Google Doc dans le dossier du projet) et l'architecture technique détaillée ([docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
 
