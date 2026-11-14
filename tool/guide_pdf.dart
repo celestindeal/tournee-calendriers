@@ -511,7 +511,7 @@ pw.Widget _installerIphone() => pw.Column(
   crossAxisAlignment: pw.CrossAxisAlignment.start,
   children: [
     _titre('Installer l\'application sur un iPhone', numero: '1'),
-    _texte('À faire une seule fois. L\'application s\'ajoute à l\'écran d\'accueil, avec une icône rouge, '
+    _texte('À faire une seule fois. L\'application s\'ajoute à l\'écran d\'accueil, avec l\'icône GEOSECTOR (un casque de pompier), '
         'comme une application normale.'),
     pw.SizedBox(height: 6),
     _etape(1, 'Ouvrez **Safari** (la boussole bleue) et allez à l\'adresse **$_urlAffichee**. '
@@ -566,7 +566,7 @@ pw.Widget _installerIphone() => pw.Column(
     _etape(4, 'Touchez **Ajouter**, en haut à droite. Le nom proposé est « Tournée » : vous pouvez le garder.'),
     _etape(
       5,
-      'L\'icône rouge **Tournée** apparaît sur l\'écran d\'accueil. **Ouvrez toujours l\'application '
+      'L\'icône **Tournée** (le logo GEOSECTOR) apparaît sur l\'écran d\'accueil. **Ouvrez toujours l\'application '
       'avec cette icône**, plus jamais par Safari.',
       illustration: _iconeApp(),
     ),
@@ -595,7 +595,7 @@ pw.Widget _installerAndroid() => pw.Column(
                   'Ou visez le QR code de la première page avec l\'appareil photo.'),
               _etape(2, 'Un bandeau jaune apparaît en haut de la carte. Touchez le bouton **Installer**.'),
               _etape(3, 'Chrome demande de confirmer : touchez **Installer** encore une fois.'),
-              _etape(4, 'L\'icône rouge **Tournée** apparaît sur l\'écran d\'accueil (ou dans la liste des applications). '
+              _etape(4, 'L\'icône **Tournée** (le logo GEOSECTOR) apparaît sur l\'écran d\'accueil (ou dans la liste des applications). '
                   'Ouvrez désormais l\'application avec cette icône.'),
               pw.SizedBox(height: 6),
               _encadre(

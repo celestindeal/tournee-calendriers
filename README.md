@@ -83,7 +83,7 @@ Quand une nouvelle version est publiée, l'app la télécharge toute seule en ar
 | --- | --- | --- |
 | Branche git | `main` | `test` |
 | Adresse | `…/tournee-calendriers/` | `…/tournee-calendriers/test/` |
-| Icône sur l'iPhone | « Tournée » (rouge) | « **TEST** » (orange) |
+| Icône sur le téléphone | Logo GEOSECTOR, nommée « Tournée » | Logo GEOSECTOR avec cadre orange, nommée « **TEST** » |
 | Repère dans l'app | aucun | bandeau orange « VERSION DE TEST » |
 | Base de données | `tournee.db` | `tournee-test.db` |
 
