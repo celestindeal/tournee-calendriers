@@ -71,13 +71,45 @@ done
 
 echo "[tournée] Ouverture de l'adresse publique (Tailscale Funnel). Si un lien s'affiche,"
 echo "[tournée] ouvrez-le pour autoriser Funnel, le module continue tout seul ensuite."
-$TS funnel --bg 8090
-$TS funnel status 2>&1 | sed 's/^/[tailscale] /'
+# Funnel est toujours effacé puis recréé : la configuration gardée du
+# démarrage précédent n'est pas toujours annoncée de nouveau aux relais de
+# Tailscale, qui ne joignent alors plus le serveur.
+ouvrir_funnel() {
+  $TS serve reset >/dev/null 2>&1 || true
+  $TS funnel --bg 8090
+  $TS funnel status 2>&1 | sed 's/^/[tailscale] /'
+}
+ouvrir_funnel
 
 echo "[tournée] ------------------------------------------------------------"
 echo "[tournée] Serveur prêt. Adresse publique : https://$ADRESSE"
 echo "[tournée] ------------------------------------------------------------"
 
-# Le module s'arrête si PocketBase s'arrête (Home Assistant l'affiche, et le
-# chien de garde le relance).
-wait "$PB"
+# Surveillance : toutes les 3 minutes, l'adresse publique est testée depuis
+# Internet (comme le ferait un téléphone). Après 2 échecs de suite, Funnel
+# est recréé ; après 4, le module s'arrête et le chien de garde de Home
+# Assistant le relance. Il s'arrête aussi si PocketBase s'arrête.
+echecs=0
+sleep 120
+while kill -0 "$PB" 2>/dev/null; do
+  if curl -fsS --max-time 20 -o /dev/null "https://$ADRESSE/api/health" 2>/dev/null; then
+    if [ "$echecs" -gt 0 ]; then
+      echo "[tournée] $(date -u '+%H:%M') UTC : adresse publique de nouveau joignable."
+    fi
+    echecs=0
+  else
+    echecs=$((echecs + 1))
+    echo "[tournée] $(date -u '+%H:%M') UTC : adresse publique injoignable (contrôle $echecs/4)."
+    echo "[tailscale] $($TS status --json 2>/dev/null | jq -c '{etat: .BackendState, enLigne: .Self.Online, relais: .Self.Relay}')"
+    if [ "$echecs" = 2 ]; then
+      echo "[tournée] Funnel est recréé…"
+      ouvrir_funnel
+    elif [ "$echecs" -ge 4 ]; then
+      echo "[tournée] Redémarrage du module pour rétablir l'adresse publique…"
+      exit 1
+    fi
+  fi
+  sleep 180
+done
+echo "[tournée] Le serveur PocketBase s'est arrêté : redémarrage du module."
+exit 1
