@@ -8,7 +8,7 @@ Point d'arrêt : **13 novembre 2026**. Le MVP est validé et en production : c'e
 | --- | --- |
 | App de la tournée (production) | https://celestindeal.github.io/tournee-calendriers/ (branche `main`) |
 | App d'essai (TEST) | https://celestindeal.github.io/tournee-calendriers/test/ (branche `test`) |
-| Serveur de synchronisation | https://serveur-pompier.tail8a91ff.ts.net : module « Tournée calendriers » 1.0.3 dans Home Assistant, sur la Raspberry Pi 5 (Wi-Fi) |
+| Serveur de synchronisation | https://serveur-pompier.tail8a91ff.ts.net : module « Tournée calendriers » 1.0.4 dans Home Assistant, sur la Raspberry Pi 5 (Wi-Fi) |
 | Mode d'emploi à imprimer | [docs/guide/Guide_Tournee_Calendriers.pdf](guide/Guide_Tournee_Calendriers.pdf) |
 | Code source | https://github.com/celestindeal/tournee-calendriers |
 
@@ -44,7 +44,8 @@ Point d'arrêt : **13 novembre 2026**. Le MVP est validé et en production : c'e
 ## Le serveur (Raspberry Pi)
 
 - Dans Home Assistant (`http://homeassistant.local:8123`), ouvrir **Paramètres → Apps → Tournée calendriers**. Le chien de garde est activé, et les données sont dans les sauvegardes de Home Assistant.
-- **Après un redémarrage de la Pi**, compter 7 à 8 minutes avant que l'adresse réponde. Le journal du module affiche « Certificat HTTPS prêt » puis « Serveur prêt ».
+- **Après un redémarrage ou une coupure de courant**, compter 7 à 8 minutes avant que l'adresse réponde. Le journal du module affiche « Certificat HTTPS prêt » puis « Serveur prêt ».
+- **Le module se surveille seul** (depuis la 1.0.4) : toutes les 3 minutes, il teste son adresse publique depuis Internet. Après 2 échecs, il recrée Funnel ; après 4, il redémarre (chien de garde). Ces contrôles apparaissent dans son journal.
 - **Pour mettre à jour le module** :
   1. augmenter `version` dans `serveur/config.yaml` ;
   2. pousser `test` ;

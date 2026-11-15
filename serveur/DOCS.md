@@ -18,5 +18,6 @@ Sur les téléphones, il n'y a rien à régler : l'adresse du serveur et la clé
 - **Données** : seulement l'identifiant cadastral de chaque maison, son statut, ses mémos et leur date. Elles restent sur cette machine et sont incluses dans les **sauvegardes de Home Assistant**.
 - **Sécurité** : sans la clé, le serveur ne montre et n'accepte rien. Personne ne peut rien supprimer depuis un téléphone. Seul le site de l'app (celestindeal.github.io) peut l'appeler depuis un navigateur. Comme la clé est dans l'app, elle arrête les robots et les curieux, mais pas quelqu'un de déterminé qui lirait le code de l'app.
 - **Changer la clé** : modifiez-la ici et dans le secret GitHub, puis redémarrez le module et republiez l'app.
+- **Le module se surveille seul** : toutes les 3 minutes, il teste son adresse publique depuis Internet. Après 2 échecs, il recrée Funnel ; après 4, il s'arrête et le chien de garde le relance (laissez le **chien de garde activé**). Après une coupure de courant, comptez 7 à 8 minutes avant que l'adresse réponde.
 - **Si le module est arrêté**, l'app continue de fonctionner sans réseau. Chaque téléphone envoie ses changements quand le serveur revient.
 - L'environnement de **test** de l'app utilise des tables séparées (`test_…`) : ses essais ne se mélangent jamais avec la vraie tournée.
