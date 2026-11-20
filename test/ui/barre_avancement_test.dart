@@ -15,16 +15,20 @@ void main() {
   });
 
   /// Texte du compteur (« 1 faite · 2 visitées / 3 »).
-  String compteur(WidgetTester tester) => tester
-      .widget<RichText>(find.descendant(of: find.byKey(const Key('compteur')), matching: find.byType(RichText)))
+  String texte(WidgetTester tester, String cle) => tester
+      .widget<RichText>(find.descendant(of: find.byKey(Key(cle)), matching: find.byType(RichText)))
       .text
       .toPlainText()
       .replaceAll(RegExp(r'\s+'), ' ');
+  String compteur(WidgetTester tester) => texte(tester, 'compteur');
+
+  /// « 33 % · 66 % » : faites puis visitées.
+  String pourcentages(WidgetTester tester) => texte(tester, 'compteur-pourcentages');
 
   testWidgets('affiche faites et visitées, et se met à jour', (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: BarreAvancement(controller: controller))));
     expect(compteur(tester), '0 faite · 0 visitée / 3');
-    expect(find.text('0 à repasser'), findsOneWidget);
+    expect(pourcentages(tester), '0 % · 0 %');
     expect(find.byKey(const Key('badge-test')), findsNothing);
 
     await tester.runAsync(() async {
@@ -34,7 +38,7 @@ void main() {
     await tester.pump();
     // Faites = sans les maisons à repasser ; visitées = avec.
     expect(compteur(tester), '1 faite · 2 visitées / 3');
-    expect(find.text('1 à repasser'), findsOneWidget);
+    expect(pourcentages(tester), '33 % · 66 %');
   });
 
   testWidgets('barre en deux couleurs : vert puis orange', (tester) async {
@@ -48,8 +52,25 @@ void main() {
     final segments = find.descendant(of: find.byKey(const Key('barre-bicolore')), matching: find.byType(ColoredBox));
     final couleurs = [for (final b in tester.widgetList<ColoredBox>(segments)) b.color];
     expect(couleurs.take(2), [Statut.achete.couleur, Statut.aRepasser.couleur]);
-    // Un tiers chacun : vert, orange, gris.
-    expect(tester.getSize(segments.first).width, closeTo(100, 1));
+    // Un tiers chacun : vert, orange, gris, tous de la hauteur de la barre.
+    expect(tester.widgetList(segments), hasLength(3));
+    for (final taille in [for (var i = 0; i < 3; i++) tester.getSize(segments.at(i))]) {
+      expect(taille.width, closeTo(100, 1));
+      expect(taille.height, 5);
+    }
+  });
+
+  testWidgets('la barre est visible dans le bandeau', (tester) async {
+    await tester.runAsync(() async {
+      await controller.changerStatut('a', Statut.achete);
+      await controller.changerStatut('b', Statut.aRepasser);
+    });
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: BarreAvancement(controller: controller))));
+    final taille = tester.getSize(find.byKey(const Key('barre-bicolore')));
+    expect(taille.width, greaterThan(100));
+    expect(taille.height, 5);
+    final vert = find.descendant(of: find.byKey(const Key('barre-bicolore')), matching: find.byType(ColoredBox)).first;
+    expect(tester.getSize(vert).height, 5);
   });
 
   testWidgets('toucher le compteur montre le détail', (tester) async {

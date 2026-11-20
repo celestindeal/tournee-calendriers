@@ -7,8 +7,9 @@ import '../state/tournee_controller.dart';
 import 'couche_parcelles.dart' show couleurTournee;
 import 'synchro_page.dart';
 
-/// Barre fine en haut de la carte : compteur « 132 / 480 faits (27 %) »,
-/// barre de progression, nombre à repasser (F5), loupe et menu.
+/// Barre fine en haut de la carte : compteur « 128 faites · 195 visitées / 220 »,
+/// barre verte / orange / grise et pourcentages, loupe et menu.
+/// Le nombre à repasser (F5) est dans le détail (toucher le compteur).
 /// La légende et le filtre sont dans le menu, pour laisser la place à la carte.
 class BarreAvancement extends StatelessWidget {
   const BarreAvancement({super.key, required this.controller, this.onMenu, this.onRecherche, this.estTest = false});
@@ -112,12 +113,26 @@ class BarreAvancement extends StatelessWidget {
                             ],
                             Expanded(child: BarreBicolore(avancement: a)),
                             const SizedBox(width: 8),
-                            Text(
-                              '${a.aRepasser} à repasser',
-                              key: const Key('compteur-a-repasser'),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: Statut.aRepasser.couleur,
-                                fontWeight: FontWeight.w600,
+                            // « 58 % · 89 % » : faites (vert) puis visitées (orange),
+                            // comme les deux morceaux de la barre.
+                            Text.rich(
+                              key: const Key('compteur-pourcentages'),
+                              TextSpan(
+                                style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+                                children: [
+                                  TextSpan(
+                                    text: '${a.pourcentage} %',
+                                    style: TextStyle(color: Statut.achete.couleur),
+                                  ),
+                                  TextSpan(
+                                    text: '  ·  ',
+                                    style: TextStyle(color: theme.colorScheme.outline),
+                                  ),
+                                  TextSpan(
+                                    text: '${a.pourcentageVisitees} %',
+                                    style: TextStyle(color: Statut.aRepasser.couleur),
+                                  ),
+                                ],
                               ),
                             ),
                             // État de la synchronisation entre téléphones, si elle est réglée.
@@ -182,6 +197,8 @@ class BarreBicolore extends StatelessWidget {
         child: a.total <= 0
             ? ColoredBox(color: _grisReste)
             : Row(
+                // Sans « stretch », les morceaux de couleur (sans enfant) ont une hauteur nulle.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (a.faits > 0)
                     Expanded(
