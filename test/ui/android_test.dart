@@ -64,7 +64,7 @@ void main() {
 
     testWidgets('Android sans invitation : menu de Chrome', (tester) async {
       await afficher(tester, Systeme.android);
-      expect(find.textContaining('menu ⋮ de Chrome'), findsOneWidget);
+      expect(find.textContaining('menu de Chrome'), findsOneWidget);
       expect(find.byKey(const Key('bouton-installer')), findsNothing);
     });
 

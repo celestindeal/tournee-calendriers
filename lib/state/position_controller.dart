@@ -101,7 +101,7 @@ class PositionController extends ChangeNotifier {
       _etat = EtatGps.refuse;
       _message = switch (systemeCourant) {
         Systeme.android =>
-          'Localisation refusée. Pour l\'autoriser : Chrome › menu ⋮ › Paramètres › '
+          'Localisation refusée. Pour l\'autoriser : Chrome › menu (les trois points) › Paramètres › '
               'Paramètres des sites › Position.',
         Systeme.ios =>
           'Localisation refusée. Pour l\'autoriser : Réglages › Confidentialité et sécurité › '

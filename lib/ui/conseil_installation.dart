@@ -24,11 +24,11 @@ class ConseilInstallation extends StatelessWidget {
 
   String get _texte => switch (systeme) {
     Systeme.ios =>
-      'Installez l\'app : Partager → « Sur l\'écran d\'accueil ». '
+      'Installez l\'app : touchez Partager, puis « Sur l\'écran d\'accueil ». '
           'Ce qui est coché dans Safari n\'y sera pas.',
     _ when onInstaller != null => 'Installez l\'app sur l\'écran d\'accueil : elle marchera aussi sans réseau.',
     Systeme.android =>
-      'Installez l\'app : menu ⋮ de Chrome → « Installer l\'application » '
+      'Installez l\'app : dans le menu de Chrome (les trois points), touchez « Installer l\'application » '
           '(ou « Ajouter à l\'écran d\'accueil »).',
     Systeme.autre => 'Installez l\'app depuis le menu du navigateur (« Installer » ou « Ajouter à l\'écran d\'accueil »).',
   };

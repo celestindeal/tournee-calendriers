@@ -159,6 +159,9 @@ class BarreAvancement extends StatelessWidget {
   }
 }
 
+/// Gris de la partie « pas encore visitées » : visible sur le fond rosé des cartes.
+const _grisReste = Color(0xFFD6D6D6);
+
 /// Barre de progression en deux couleurs : vert = faites, orange = à repasser
 /// (juste après), gris = pas encore visitées.
 class BarreBicolore extends StatelessWidget {
@@ -177,7 +180,7 @@ class BarreBicolore extends StatelessWidget {
       child: SizedBox(
         height: hauteur,
         child: a.total <= 0
-            ? ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest)
+            ? ColoredBox(color: _grisReste)
             : Row(
                 children: [
                   if (a.faits > 0)
@@ -193,7 +196,7 @@ class BarreBicolore extends StatelessWidget {
                   if (reste > 0)
                     Expanded(
                       flex: reste,
-                      child: ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                      child: ColoredBox(color: _grisReste),
                     ),
                 ],
               ),
@@ -255,7 +258,7 @@ Future<void> afficherDetailAvancement(BuildContext context, TourneeController co
               ),
               ligne(Statut.aRepasser.couleur, 'À repasser', '${a.aRepasser}'),
               ligne(
-                theme.colorScheme.surfaceContainerHighest,
+                _grisReste,
                 'Pas encore visitées',
                 '${a.nonVisites}',
                 key: const Key('detail-non-visitees'),
