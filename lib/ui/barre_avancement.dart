@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/avancement.dart';
 import '../models/filtre.dart';
 import '../models/statut.dart';
 import '../state/tournee_controller.dart';
@@ -56,63 +57,82 @@ class BarreAvancement extends StatelessWidget {
                   const SizedBox(width: 10),
                 ],
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${a.faits} / ${a.total} faits (${a.pourcentage} %)',
-                        key: const Key('compteur'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          // Le compteur porte sur ma tournée quand j'en ai choisi une.
-                          if (controller.maTournee case final t?) ...[
-                            Text(
-                              'Tournée ${t.numero}',
-                              key: const Key('compteur-tournee'),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: couleurTournee,
-                                fontWeight: FontWeight.w700,
-                              ),
+                  // Toucher le compteur : le détail de l'avancement.
+                  child: InkWell(
+                    key: const Key('bouton-detail-avancement'),
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => afficherDetailAvancement(context, controller),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // « 128 faites · 195 visitées / 220 » : sans puis avec les maisons
+                        // à repasser. Rétréci plutôt que coupé si la place manque.
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text.rich(
+                            key: const Key('compteur'),
+                            TextSpan(
+                              style: theme.textTheme.titleSmall,
+                              children: [
+                                TextSpan(
+                                  text: '${a.faits}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                TextSpan(text: ' ${a.faits <= 1 ? 'faite' : 'faites'}'),
+                                TextSpan(
+                                  text: '  ·  ',
+                                  style: TextStyle(color: theme.colorScheme.outline),
+                                ),
+                                TextSpan(
+                                  text: '${a.visitees}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                TextSpan(text: ' ${a.visitees <= 1 ? 'visitée' : 'visitées'} / ${a.total}'),
+                              ],
                             ),
+                            maxLines: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            // Le compteur porte sur ma tournée quand j'en ai choisi une.
+                            if (controller.maTournee case final t?) ...[
+                              Text(
+                                'Tournée ${t.numero}',
+                                key: const Key('compteur-tournee'),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: couleurTournee,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Expanded(child: BarreBicolore(avancement: a)),
                             const SizedBox(width: 8),
-                          ],
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: LinearProgressIndicator(
-                                value: a.total == 0 ? 0 : a.faits / a.total,
-                                minHeight: 5,
-                                color: Statut.achete.couleur,
-                                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                            Text(
+                              '${a.aRepasser} à repasser',
+                              key: const Key('compteur-a-repasser'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Statut.aRepasser.couleur,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${a.aRepasser} à repasser',
-                            key: const Key('compteur-a-repasser'),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Statut.aRepasser.couleur,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          // État de la synchronisation entre téléphones, si elle est réglée.
-                          if (controller.synchro case final synchro? when synchro.active) ...[
-                            const SizedBox(width: 6),
-                            ListenableBuilder(
-                              listenable: synchro,
-                              builder: (context, _) => IconeSynchro(key: const Key('icone-synchro'), synchro: synchro),
-                            ),
+                            // État de la synchronisation entre téléphones, si elle est réglée.
+                            if (controller.synchro case final synchro? when synchro.active) ...[
+                              const SizedBox(width: 6),
+                              ListenableBuilder(
+                                listenable: synchro,
+                                builder: (context, _) =>
+                                    IconeSynchro(key: const Key('icone-synchro'), synchro: synchro),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -137,6 +157,125 @@ class BarreAvancement extends StatelessWidget {
       },
     );
   }
+}
+
+/// Barre de progression en deux couleurs : vert = faites, orange = à repasser
+/// (juste après), gris = pas encore visitées.
+class BarreBicolore extends StatelessWidget {
+  const BarreBicolore({super.key, required this.avancement, this.hauteur = 5});
+
+  final Avancement avancement;
+  final double hauteur;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = avancement;
+    final reste = (a.total - a.visitees).clamp(0, a.total);
+    return ClipRRect(
+      key: const Key('barre-bicolore'),
+      borderRadius: BorderRadius.circular(3),
+      child: SizedBox(
+        height: hauteur,
+        child: a.total <= 0
+            ? ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest)
+            : Row(
+                children: [
+                  if (a.faits > 0)
+                    Expanded(
+                      flex: a.faits,
+                      child: ColoredBox(color: Statut.achete.couleur),
+                    ),
+                  if (a.aRepasser > 0)
+                    Expanded(
+                      flex: a.aRepasser,
+                      child: ColoredBox(color: Statut.aRepasser.couleur),
+                    ),
+                  if (reste > 0)
+                    Expanded(
+                      flex: reste,
+                      child: ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// Détail de l'avancement (en touchant le compteur).
+Future<void> afficherDetailAvancement(BuildContext context, TourneeController controller) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (context) {
+      final a = controller.avancement;
+      final theme = Theme.of(context);
+      final tournee = controller.maTournee;
+      String pc(int n) => a.total <= 0 ? '' : ' (${n * 100 ~/ a.total} %)';
+      Widget ligne(Color? couleur, String libelle, String valeur, {bool gras = false, Key? key}) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(color: couleur ?? Colors.transparent, borderRadius: BorderRadius.circular(3)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(libelle, style: gras ? const TextStyle(fontWeight: FontWeight.bold) : null),
+            ),
+            Text(
+              valeur,
+              key: key,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      );
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                tournee == null ? 'Avancement de toute la carte' : 'Avancement de la ${tournee.nom.toLowerCase()}',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 10),
+              BarreBicolore(avancement: a, hauteur: 10),
+              const SizedBox(height: 10),
+              ligne(
+                Statut.achete.couleur,
+                'Faites (achetées + refus)',
+                '${a.faits}${pc(a.faits)}',
+                key: const Key('detail-faites'),
+              ),
+              ligne(Statut.aRepasser.couleur, 'À repasser', '${a.aRepasser}'),
+              ligne(
+                theme.colorScheme.surfaceContainerHighest,
+                'Pas encore visitées',
+                '${a.nonVisites}',
+                key: const Key('detail-non-visitees'),
+              ),
+              const Divider(),
+              ligne(
+                null,
+                'Premier tour (visitées au moins une fois)',
+                '${a.visitees}${pc(a.visitees)}',
+                gras: true,
+                key: const Key('detail-visitees'),
+              ),
+              ligne(null, 'Maisons comptées', '${a.total}'),
+              ligne(Statut.nonConcerne.couleur, 'Non concernées (pas comptées)', '${a.nonConcernes}'),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 /// Petite étiquette sous la barre quand un filtre cache des maisons :

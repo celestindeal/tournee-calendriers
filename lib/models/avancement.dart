@@ -54,6 +54,13 @@ class Avancement {
   /// Pourcentage arrondi à l'entier inférieur (on n'annonce jamais 100 % trop tôt).
   int get pourcentage => total <= 0 ? 0 : faits * 100 ~/ total;
 
+  /// Maisons où l'on est passé au moins une fois : faites + à repasser
+  /// (le « premier tour »).
+  int get visitees => faits + aRepasser;
+
+  /// Pourcentage du premier tour, arrondi à l'entier inférieur.
+  int get pourcentageVisitees => total <= 0 ? 0 : visitees * 100 ~/ total;
+
   /// « 132 / 480 faits (27 %) – 45 à repasser »
   String get resume => '$faits / $total faits ($pourcentage %) – $aRepasser à repasser';
 }
